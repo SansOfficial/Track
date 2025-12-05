@@ -1,0 +1,43 @@
+page {
+  background-color: #fdfbf7; /* Wafu Beige Light */
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --wafu-indigo: #1e314c; /* Keep for text/accents */
+  --wafu-matcha: #b8d200; /* Keep for secondary */
+  --wafu-beige: #e6d3a3;
+  --wafu-red: #b91c1c; /* Primary Red */
+  --wafu-text: #4a4a4a;
+}
+
+.container {
+  padding: 20px;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+  background-color: var(--wafu-red);
+  color: white;
+  border-radius: 4px;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(185, 28, 28, 0.2);
+}
+
+.btn-secondary {
+  background-color: var(--wafu-beige);
+  color: var(--wafu-indigo);
+  border-radius: 4px;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  border: 1px solid var(--wafu-beige);
+}

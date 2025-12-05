@@ -1,0 +1,24 @@
+<view class="container">
+  <view class="card" style="text-align: center;">
+    <view style="margin-bottom: 30px;">
+      <text style="font-size: 24px; font-weight: bold; color: var(--wafu-red);">工人登录</text>
+    </view>
+    
+    <view style="margin-bottom: 30px; color: var(--wafu-text);">
+      <view style="margin-top: 10px; font-size: 20px; font-weight: bold; background: #fff; padding: 10px; border-radius: 4px; user-select: all; word-break: break-all;">{{openid || '加载中...'}}</view>
+      <button size="mini" style="margin-top: 10px;" bindtap="copyOpenID">复制 ID 发给管理员</button>
+    </view>
+    
+    <button class="btn-primary" bindtap="checkLoginStatus">我已联系管理员，重试登录</button>
+    
+    <!-- Dev only: Manual input fallback if needed -->
+    <view style="margin-top: 20px;">
+        <input placeholder="Dev: Enter Phone" bindinput="handleInput" style="border: 1px solid #eee; padding: 5px; display: none;" />
+    </view>
+
+    <view style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+        <button class="btn-secondary" bindtap="getUserProfile">同步微信头像/昵称</button>
+        <view style="text-align: center; color: #999; font-size: 12px; margin-top: 5px;">让工作台显示您的真实头像</view>
+    </view>
+  </view>
+</view>

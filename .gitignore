@@ -1,0 +1,34 @@
+# Build artifacts
+dist/
+build/
+*.zip
+release/
+
+# Backend
+server/trace-server-linux
+server/trace-server
+server/dist/
+server/trace.db
+
+# Frontend
+admin/node_modules/
+admin/dist/
+admin/.vite/
+
+# Logs
+*.log
+server.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
