@@ -9,8 +9,11 @@ function ProductManager() {
     const fetchProducts = () => {
         fetch(`${API_BASE_URL}/products`)
             .then(res => res.json())
-            .then(data => setProducts(data))
-            .catch(err => console.error(err));
+            .then(data => setProducts(Array.isArray(data) ? data : []))
+            .catch(err => {
+                console.error(err);
+                setProducts([]);
+            });
     };
 
     useEffect(() => {

@@ -15,7 +15,12 @@ function Dashboard() {
         fetch(`${API_BASE_URL}/dashboard/stats?period=${period}`)
             .then(res => res.json())
             .then(data => {
-                setStats(data);
+                setStats({
+                    summary: data.summary || { total: 0, completed: 0, revenue: 0 },
+                    trend: Array.isArray(data.trend) ? data.trend : [],
+                    status_dist: Array.isArray(data.status_dist) ? data.status_dist : [],
+                    top_products: Array.isArray(data.top_products) ? data.top_products : []
+                });
             })
             .catch(err => console.error(err));
     }, [period]);

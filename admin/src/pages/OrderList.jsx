@@ -19,8 +19,8 @@ function OrderList() {
         fetch(`${API_BASE_URL}/orders?page=${page}&page_size=10${statusQuery}`)
             .then(res => res.json())
             .then(data => {
-                setOrders(data.data);
-                setTotalPages(Math.ceil(data.total / 10));
+                setOrders(data.data || []);
+                setTotalPages(Math.ceil((data.total || 0) / 10));
             })
             .catch(err => console.error(err));
     };
