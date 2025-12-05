@@ -87,7 +87,7 @@ jobs:
           killall trace-server-linux || true
           rm -rf server
           unzip -o /tmp/release.zip
-          chmod +x server/trace-server-linux
-          nohup ./server/trace-server-linux > server.log 2>&1 &
-          rm /tmp/release.zip
+          cd server
+          chmod +x trace-server-linux
+          nohup ./trace-server-linux > server.log 2>&1 &
           echo "Deployment completed at $(date)"
