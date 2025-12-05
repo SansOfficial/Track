@@ -52,8 +52,8 @@ function OrderList() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold tracking-tight">订单列表</h2>
-                <Link to="/create-order" className="btn-primary">
-                    + 新建订单
+                <Link to="/create-order" className="bg-white text-black px-6 py-2 rounded-none border border-black hover:border-black hover:border-b-4 hover:border-b-red-700 transition-all duration-300 inline-flex items-center justify-center text-sm font-medium group">
+                    <span className="mr-2 group-hover:text-red-700 transition-colors">+</span> 新建订单
                 </Link>
             </div>
 
