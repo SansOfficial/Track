@@ -1,6 +1,6 @@
 App({
     onLaunch: function () {
-        // Auto login check
+        // Auto login check1
         wx.login({
             success: res => {
                 if (res.code) {
