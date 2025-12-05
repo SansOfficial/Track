@@ -55,7 +55,7 @@ Page({
         wx.showLoading({ title: '登录中...' })
 
         wx.request({
-            url: 'http://localhost:8080/api/auth/wechat/phone',
+            url: 'http://101.43.170.39:8080/api/auth/wechat/phone',
             method: 'POST',
             data: {
                 code: e.detail.code,
@@ -109,7 +109,7 @@ Page({
             success: res => {
                 if (res.code) {
                     wx.request({
-                        url: 'http://localhost:8080/api/auth/wechat',
+                        url: 'http://101.43.170.39:8080/api/auth/wechat',
                         method: 'POST',
                         data: { code: res.code },
                         success: (response) => {
@@ -140,7 +140,7 @@ Page({
                 }
 
                 wx.request({
-                    url: 'http://localhost:8080/api/worker/profile',
+                    url: 'http://101.43.170.39:8080/api/worker/profile',
                     method: 'POST',
                     data: {
                         worker_id: worker.ID,

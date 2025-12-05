@@ -6,7 +6,7 @@ App({
                 if (res.code) {
                     // Send code to backend
                     wx.request({
-                        url: 'http://localhost:8080/api/auth/wechat',
+                        url: 'http://101.43.170.39:8080/api/auth/wechat',
                         method: 'POST',
                         data: { code: res.code },
                         success: (response) => {

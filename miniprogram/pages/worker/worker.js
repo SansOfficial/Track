@@ -25,7 +25,7 @@ Page({
 
     updateOrder: function (qrCode) {
         wx.request({
-            url: 'http://localhost:8080/api/scan',
+            url: 'http://101.43.170.39:8080/api/scan',
             method: 'POST',
             data: {
                 qr_code: qrCode,

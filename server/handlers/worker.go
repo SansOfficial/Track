@@ -25,7 +25,6 @@ func CreateWorker(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, worker)
-	c.JSON(http.StatusOK, worker)
 }
 
 func UpdateWorker(c *gin.Context) {
