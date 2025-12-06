@@ -94,6 +94,9 @@ func GetDashboardStats(c *gin.Context) {
 	var topProducts []ProductStat
 	database.DB.Table("order_products").
 		Joins("JOIN products ON products.id = order_products.product_id").
+		Joins("JOIN orders ON orders.id = order_products.order_id").
+		Where("products.deleted_at IS NULL").
+		Where("orders.deleted_at IS NULL").
 		Select("products.name, count(order_products.order_id) as count").
 		Group("products.id, products.name").
 		Order("count desc").
