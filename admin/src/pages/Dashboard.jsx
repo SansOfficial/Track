@@ -153,6 +153,32 @@ function Dashboard() {
                 </div>
             </div>
 
+            {/* Product Sales Section */}
+            <div className="card h-80 flex flex-col">
+                <h3 className="text-sm font-bold mb-6 border-l-4 border-gray-800 pl-3">产品销量排行 (Top 5)</h3>
+                <div className="flex-1 w-full text-xs">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart layout="vertical" data={stats.top_products} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                            <XAxis type="number" hide />
+                            <YAxis
+                                dataKey="name"
+                                type="category"
+                                tickLine={false}
+                                axisLine={false}
+                                width={100}
+                                tick={{ fill: '#374151', fontSize: 11, fontWeight: 500 }}
+                            />
+                            <Tooltip
+                                cursor={{ fill: '#f9fafb' }}
+                                contentStyle={{ border: '1px solid #f3f4f6', boxShadow: 'none', borderRadius: '0px' }}
+                            />
+                            <Bar dataKey="count" name="销量" fill="#57534e" radius={[0, 4, 4, 0]} barSize={20}>
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
             <div className="text-center text-gray-300 text-xs font-mono tracking-widest pt-8 uppercase">
                 Tatami System • 仪表盘
             </div>
