@@ -12,6 +12,14 @@ Page({
             return
         }
         this.setData({ worker: worker })
+
+        if (options.scan_order_id) {
+            // Simulate scanning by passing the ID in a format backend understands
+            // We can reconstruct the URL or just send the ID if we update backend
+            // Let's send the URL format we defined
+            const fakeUrl = `https://tatami.domain/scan?id=${options.scan_order_id}`
+            this.updateOrder(fakeUrl)
+        }
     },
 
     handleScan: function () {

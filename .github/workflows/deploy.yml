@@ -89,5 +89,15 @@ jobs:
           unzip -o /tmp/release.zip
           cd server
           chmod +x trace-server-linux
-          nohup ./trace-server-linux > server.log 2>&1 &
+          nohup ./trace-server-linux > server.log 2>&1 < /dev/null &
+          # Wait a moment to capture early errors
+          sleep 2
+          if ps -p $! > /dev/null; then
+             echo "Server started successfully (PID $!)"
+             exit 0
+          else
+             echo "Server failed to start. Check server.log:"
+             cat server.log
+             exit 1
+          fi
           echo "Deployment completed at $(date)"

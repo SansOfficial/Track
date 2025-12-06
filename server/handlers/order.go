@@ -74,7 +74,9 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	order.QRCode = fmt.Sprintf("ORDER-%d", order.ID)
+	// Generate QR Code as URL for direct deep link
+	// Note: Replace with actual domain configured in WeChat Admin
+	order.QRCode = fmt.Sprintf("https://tatami.domain/scan?id=%d", order.ID)
 	database.DB.Save(&order)
 
 	c.JSON(http.StatusOK, order)
@@ -176,8 +178,36 @@ func ScanQRCode(c *gin.Context) {
 	}
 
 	// Parse Order ID from QR Code (assuming "ORDER-{ID}")
+	// Parse Order ID from QR Code
+	// Support both "ORDER-{ID}" and "URL?id={ID}" formats
 	var orderID uint
-	fmt.Sscanf(input.QRCode, "ORDER-%d", &orderID)
+	if n, _ := fmt.Sscanf(input.QRCode, "ORDER-%d", &orderID); n != 1 {
+		// Try parsing as URL or just check for "id="
+		// Simple parsing: verify if it contains "id="
+		// In a real app we might parse URL properly, here we hack it slightly for robustness
+		// Or simply scan for id=%d
+		// Note: Sscanf might not work well with full URL if not exact match.
+		// Let's use string manipulation or RegEx? Stick to naive approach for now
+		// Assuming the URL ends with id={ID} or contains id={ID}
+
+		// A simple way used often: extract digits
+		// But let's be more specific
+		// Let's try to unmarshal url
+		// Actually, just looping is easiest if formats vary.
+
+		// Let's just try to parse "id=%d" from the string manually if "ORDER-" fails.
+		// Or use URL parsing if it looks like a URL.
+
+		// Simplified approach: check if we can scan id=%d from the tail or find query param
+		// Given: https://tatami.domain/scan?id=123
+		var id int
+		if _, err := fmt.Sscanf(input.QRCode, "https://tatami.domain/scan?id=%d", &id); err == nil {
+			orderID = uint(id)
+		} else {
+			// Fallback for generic parsing if domain changes
+			// ...
+		}
+	}
 
 	var order models.Order
 	if err := database.DB.First(&order, orderID).Error; err != nil {

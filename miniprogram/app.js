@@ -1,6 +1,15 @@
 App({
-    onLaunch: function () {
-        // Auto login check1
+    onLaunch: function (options) {
+        // Check for QR Code launch
+        if (options.query && options.query.q) {
+            const url = decodeURIComponent(options.query.q)
+            const match = url.match(/id=(\d+)/)
+            if (match && match[1]) {
+                this.globalData.scanOrderId = match[1]
+            }
+        }
+
+        // Auto login check
         wx.login({
             success: res => {
                 if (res.code) {
@@ -16,6 +25,15 @@ App({
                                 if (this.workerReadyCallback) {
                                     this.workerReadyCallback(response.data.worker)
                                 }
+
+                                // Handle Pending Scan
+                                if (this.globalData.scanOrderId) {
+                                    wx.navigateTo({
+                                        url: `/pages/worker/worker?scan_order_id=${this.globalData.scanOrderId}`
+                                    })
+                                    this.globalData.scanOrderId = null
+                                }
+
                                 // Redirect if on bind page
                                 const pages = getCurrentPages()
                                 if (pages.length > 0 && pages[0].route === 'pages/bind/bind') {
