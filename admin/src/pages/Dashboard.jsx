@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import API_BASE_URL from '../config';
 
+import { useAuth } from '../context/AuthContext';
+
 function Dashboard() {
+    const { fetchWithAuth } = useAuth();
     const [stats, setStats] = useState({
         summary: { total: 0, completed: 0, revenue: 0 },
         trend: [],
@@ -12,14 +15,14 @@ function Dashboard() {
     const [period, setPeriod] = useState('week'); // week, month, year
 
     useEffect(() => {
-        fetch(`${API_BASE_URL}/dashboard/stats?period=${period}`)
+        fetchWithAuth(`${API_BASE_URL}/dashboard/stats?period=${period}`)
             .then(res => res.json())
             .then(data => {
                 setStats({
-                    summary: data.summary || { total: 0, completed: 0, revenue: 0 },
-                    trend: Array.isArray(data.trend) ? data.trend : [],
-                    status_dist: Array.isArray(data.status_dist) ? data.status_dist : [],
-                    top_products: Array.isArray(data.top_products) ? data.top_products : []
+                    summary: (data && data.summary) || { total: 0, completed: 0, revenue: 0 },
+                    trend: (data && Array.isArray(data.trend)) ? data.trend : [],
+                    status_dist: (data && Array.isArray(data.status_dist)) ? data.status_dist : [],
+                    top_products: (data && Array.isArray(data.top_products)) ? data.top_products : []
                 });
             })
             .catch(err => console.error(err));

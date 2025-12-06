@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
 import { useUI } from '../context/UIContext';
 
+import { useAuth } from '../context/AuthContext';
+
 function ProductManager() {
+    const { fetchWithAuth } = useAuth();
     const { toast, confirm } = useUI();
     const [products, setProducts] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,7 +19,7 @@ function ProductManager() {
             url += `?q=${encodeURIComponent(searchQuery)}`;
         }
 
-        fetch(url)
+        fetchWithAuth(url)
             .then(res => res.json())
             .then(data => setProducts(Array.isArray(data) ? data : []))
             .catch(err => {
@@ -53,7 +56,7 @@ function ProductManager() {
             : `${API_BASE_URL}/products`;
         const method = newProduct.ID ? 'PUT' : 'POST';
 
-        fetch(url, {
+        fetchWithAuth(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...newProduct, price: parseFloat(newProduct.price) })
@@ -73,7 +76,7 @@ function ProductManager() {
     const handleDelete = async (id) => {
         const shouldDelete = await confirm('确定删除该产品吗？');
         if (shouldDelete) {
-            fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' })
+            fetchWithAuth(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' })
                 .then(res => {
                     if (!res.ok) {
                         return res.json().then(json => { throw new Error(json.error || '删除失败'); });

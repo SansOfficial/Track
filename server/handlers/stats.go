@@ -11,10 +11,10 @@ import (
 
 func GetDashboardStats(c *gin.Context) {
 	// 1. Status Distribution
-	var statusStats []struct {
+	statusStats := make([]struct {
 		Status string `json:"name"`
 		Count  int64  `json:"value"`
-	}
+	}, 0)
 	database.DB.Model(&models.Order{}).Select("status, count(*) as count").Group("status").Scan(&statusStats)
 
 	// Ensure colors for specific statuses (Frontend will handle mapping, but we give raw data)
@@ -26,7 +26,7 @@ func GetDashboardStats(c *gin.Context) {
 		Revenue float64 `json:"revenue"`
 		Count   int64   `json:"count"`
 	}
-	var trend []DailyStat
+	trend := make([]DailyStat, 0)
 
 	now := time.Now()
 	var format string
@@ -87,11 +87,12 @@ func GetDashboardStats(c *gin.Context) {
 	}
 
 	// 3. Top Products (Top 5)
+	// 3. Top Products (Top 5)
 	type ProductStat struct {
 		Name  string `json:"name"`
 		Count int64  `json:"count"`
 	}
-	var topProducts []ProductStat
+	topProducts := make([]ProductStat, 0)
 	database.DB.Table("order_products").
 		Joins("JOIN products ON products.id = order_products.product_id").
 		Joins("JOIN orders ON orders.id = order_products.order_id").

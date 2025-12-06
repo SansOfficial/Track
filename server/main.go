@@ -1,14 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"trace-server/database"
 	"trace-server/handlers"
+	"trace-server/middleware"
+	"trace-server/models"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func main() {
 	database.Connect()
+	seedAdmin()
 
 	r := gin.Default()
 
@@ -29,39 +35,46 @@ func main() {
 
 	api := r.Group("/api")
 	{
-		// Auth
+		// Public Auth
 		api.POST("/login", handlers.Login)
 
-		// Orders
-		api.POST("/orders", handlers.CreateOrder)
-		api.DELETE("/orders/:id", handlers.DeleteOrder)
-		api.PUT("/orders/:id", handlers.UpdateOrderDetails)
-		api.GET("/orders", handlers.GetOrders)
-		api.GET("/orders/:id", handlers.GetOrder)
-		api.PUT("/orders/:id/status", handlers.UpdateOrderStatus)
-
-		// Products
-		api.POST("/products", handlers.CreateProduct)
-		api.GET("/products", handlers.GetProducts)
-		api.PUT("/products/:id", handlers.UpdateProduct)
-		api.DELETE("/products/:id", handlers.DeleteProduct)
-
-		// Workers
-		api.POST("/workers", handlers.CreateWorker)
-		api.PUT("/workers/:id", handlers.UpdateWorker)
-		api.DELETE("/workers/:id", handlers.DeleteWorker)
-		api.GET("/workers", handlers.GetWorkers)
-		api.POST("/worker/login", handlers.LoginWorker) // Keep for manual testing if needed
+		// Public/Worker Routes (Unprotected for now to Support Mini Program)
+		api.POST("/scan", handlers.ScanQRCode)
 		api.POST("/auth/wechat", handlers.WeChatLogin)
 		api.POST("/auth/wechat/phone", handlers.WeChatPhoneLogin)
 		api.POST("/worker/bind", handlers.BindWorker)
 		api.POST("/worker/profile", handlers.UpdateProfile)
+		api.POST("/worker/login", handlers.LoginWorker)
 
-		// Public/Mini Program
-		api.POST("/scan", handlers.ScanQRCode)
+		// Worker Order Operations
+		api.GET("/orders/:id", handlers.GetOrder)                 // Used by Worker to see details
+		api.PUT("/orders/:id/status", handlers.UpdateOrderStatus) // Used by Worker to update status
 
-		// Dashboard Stats
-		api.GET("/dashboard/stats", handlers.GetDashboardStats)
+		// Protected Admin Routes
+		admin := api.Group("/")
+		admin.Use(middleware.AuthMiddleware())
+		{
+			// Dashboard
+			admin.GET("/dashboard/stats", handlers.GetDashboardStats)
+
+			// Orders (Admin Operations)
+			admin.POST("/orders", handlers.CreateOrder)
+			admin.DELETE("/orders/:id", handlers.DeleteOrder)
+			admin.PUT("/orders/:id", handlers.UpdateOrderDetails)
+			admin.GET("/orders", handlers.GetOrders)
+
+			// Products
+			admin.POST("/products", handlers.CreateProduct)
+			admin.GET("/products", handlers.GetProducts)
+			admin.PUT("/products/:id", handlers.UpdateProduct)
+			admin.DELETE("/products/:id", handlers.DeleteProduct)
+
+			// Workers (Admin Management)
+			admin.POST("/workers", handlers.CreateWorker)
+			admin.PUT("/workers/:id", handlers.UpdateWorker)
+			admin.DELETE("/workers/:id", handlers.DeleteWorker)
+			admin.GET("/workers", handlers.GetWorkers)
+		}
 	}
 
 	// Serve Static Files (Frontend)
@@ -75,4 +88,25 @@ func main() {
 	})
 
 	r.Run(":8080")
+}
+
+func seedAdmin() {
+	var user models.User
+	result := database.DB.Where("username = ?", "admin").First(&user)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+			admin := models.User{
+				Username: "admin",
+				Password: string(hashedPassword),
+				Role:     "admin",
+			}
+			if err := database.DB.Create(&admin).Error; err != nil {
+				// Log error but don't crash, maybe it's a soft delete conflict
+				fmt.Printf("Failed to seed admin: %v\n", err)
+			} else {
+				fmt.Println("Admin user seeded successfully.")
+			}
+		}
+	}
 }

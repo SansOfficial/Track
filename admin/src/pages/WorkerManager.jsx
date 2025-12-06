@@ -4,7 +4,10 @@ import { QRCodeSVG } from 'qrcode.react';
 
 import { useUI } from '../context/UIContext';
 
+import { useAuth } from '../context/AuthContext';
+
 function WorkerManager() {
+    const { fetchWithAuth } = useAuth();
     const { toast, confirm } = useUI();
     const [workers, setWorkers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,7 +24,7 @@ function WorkerManager() {
         if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
         if (stationFilter) url += `&station=${encodeURIComponent(stationFilter)}`;
 
-        fetch(url)
+        fetchWithAuth(url)
             .then(res => res.json())
             .then(data => {
                 setWorkers(data.data || []);
@@ -34,42 +37,11 @@ function WorkerManager() {
     };
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            if (page === 1) fetchWorkers();
-            else setPage(1); // will trigger refetch via page dependency if logic was separate, but here we can just fetch or reset
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery, stationFilter]);
-
-    // Separate effect for page changes to avoid double fetching or complex dependencies
-    useEffect(() => {
-        fetchWorkers();
-    }, [page]);
-    // Wait, the above logic is slightly conflicting. 
-    // Let's clean it up: 
-    // One effect for fetching that depends on [page, searchQuery, stationFilter].
-    // And when search/filter changes, we reset page to 1.
-
-    // Refined Logic (overwriting the above):
-    /*
-    useEffect(() => {
         const timer = setTimeout(fetchWorkers, 300);
         return () => clearTimeout(timer);
     }, [page, searchQuery, stationFilter]);
-    
-    const handleSearchChange = (val) => {
-        setSearchQuery(val);
-        setPage(1);
-    };
-    */
 
-    // Let's implement the clean version below directly:
-
-    /*
-    const fetchWorkers = () => { ... } is defined above.
-    */
-
-    // ... redefining clean version in code block ...
+    // ... redefine logic ... (Skipping comments for conciseness)
 
     const openModal = (worker = null) => {
         if (worker) {
@@ -94,7 +66,7 @@ function WorkerManager() {
 
         const method = newWorker.ID ? 'PUT' : 'POST';
 
-        fetch(url, {
+        fetchWithAuth(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newWorker)
@@ -116,7 +88,7 @@ function WorkerManager() {
         const confirmed = await confirm(`确定要删除工人 ${id} 吗？`);
         if (!confirmed) return;
 
-        fetch(`${API_BASE_URL}/workers/${id}`, { method: 'DELETE' })
+        fetchWithAuth(`${API_BASE_URL}/workers/${id}`, { method: 'DELETE' })
             .then(() => {
                 toast.success('工人删除成功！');
                 fetchWorkers();

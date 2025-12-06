@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 
 import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { printOrder } from '../utils/print';
 
 function CreateOrder() {
+    const { fetchWithAuth } = useAuth();
     const { toast, confirm } = useUI();
     const [formData, setFormData] = useState({
         customer_name: '',
@@ -21,7 +23,7 @@ function CreateOrder() {
 
     useEffect(() => {
         // Fetch products for selection
-        fetch(`${API_BASE_URL}/products`)
+        fetchWithAuth(`${API_BASE_URL}/products`)
             .then(res => res.json())
             .then(data => setProducts(data))
             .catch(err => console.error(err));
@@ -53,7 +55,7 @@ function CreateOrder() {
             product_ids: selectedProducts
         };
 
-        fetch(`${API_BASE_URL}/orders`, {
+        fetchWithAuth(`${API_BASE_URL}/orders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -131,7 +133,7 @@ function CreateOrder() {
 
                 <div className="flex justify-end pt-4 space-x-4">
                     <button type="button" onClick={() => navigate('/')} className="btn-secondary">取消</button>
-                    <button type="submit" className="btn-primary">创建订单</button>
+                    <button type="submit" className="btn-secondary">创建订单</button>
                 </div>
             </form>
         </div>

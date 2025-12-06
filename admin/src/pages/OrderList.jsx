@@ -6,7 +6,10 @@ import { Link } from 'react-router-dom';
 import { useUI } from '../context/UIContext';
 import { printOrder } from '../utils/print';
 
+import { useAuth } from '../context/AuthContext';
+
 function OrderList() {
+    const { fetchWithAuth } = useAuth();
     const [orders, setOrders] = useState([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1); // Keep totalPages for pagination
@@ -38,7 +41,7 @@ function OrderList() {
         if (statusFilter) query += `&status=${statusFilter}`;
         if (searchQuery) query += `&q=${encodeURIComponent(searchQuery)}`;
 
-        fetch(`${API_BASE_URL}/orders${query}`)
+        fetchWithAuth(`${API_BASE_URL}/orders${query}`)
             .then(res => res.json())
             .then(data => {
                 if (data && Array.isArray(data.data)) {
@@ -56,7 +59,7 @@ function OrderList() {
         const shouldDelete = await confirm('确定要删除此订单吗？操作无法撤销。');
         if (!shouldDelete) return;
 
-        fetch(`${API_BASE_URL}/orders/${id}`, { method: 'DELETE' })
+        fetchWithAuth(`${API_BASE_URL}/orders/${id}`, { method: 'DELETE' })
             .then(() => {
                 toast.success('订单已删除');
                 fetchOrders();
@@ -74,7 +77,7 @@ function OrderList() {
 
     const handleUpdate = (e) => {
         e.preventDefault();
-        fetch(`${API_BASE_URL}/orders/${editingOrder.ID}/details`, {
+        fetchWithAuth(`${API_BASE_URL}/orders/${editingOrder.ID}/details`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
