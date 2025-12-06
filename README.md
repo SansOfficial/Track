@@ -7,7 +7,7 @@
 ### 后端
 - Go 1.21+
 - Gin Web Framework
-- GORM + SQLite
+- GORM + Mysql
 - 纯 Go 实现（无 CGO 依赖）
 
 ### 前端
