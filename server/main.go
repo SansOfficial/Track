@@ -49,6 +49,7 @@ func main() {
 		// Workers
 		api.POST("/workers", handlers.CreateWorker)
 		api.PUT("/workers/:id", handlers.UpdateWorker)
+		api.DELETE("/workers/:id", handlers.DeleteWorker)
 		api.GET("/workers", handlers.GetWorkers)
 		api.POST("/worker/login", handlers.LoginWorker) // Keep for manual testing if needed
 		api.POST("/auth/wechat", handlers.WeChatLogin)

@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 	"trace-server/database"
 	"trace-server/models"
 
@@ -20,15 +22,52 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// Validation
+	if input.CustomerName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "客户姓名不能为空"})
+		return
+	}
+	if input.Phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "联系电话不能为空"})
+		return
+	}
+	if input.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "订单金额必须大于0"})
+		return
+	}
+	if len(input.ProductIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "必须选择至少一个产品"})
+		return
+	}
+
 	order := input.Order
 	order.Status = "待下料"
 
+	// Associate Products
 	// Associate Products
 	if len(input.ProductIDs) > 0 {
 		var products []models.Product
 		database.DB.Find(&products, input.ProductIDs)
 		order.Products = products
 	}
+
+	// Generate Order No: ORD-YYYYMMDDHHMMSS-XXXXXX (Standardized Time + Random)
+	now := time.Now()
+	timestamp := now.Format("20060102150405")
+	micro := now.Nanosecond() / 1000         // Microseconds for precision
+	randomPart := rand.Intn(900000) + 100000 // 6 digit random
+	order.OrderNo = fmt.Sprintf("ORD-%s-%06d-%d", timestamp, micro%1000000, randomPart)
+	// Simplified: ORD-YYYYMMDDHHMMSS-RANDOM
+	order.OrderNo = fmt.Sprintf("ORD-%s-%06d", timestamp, randomPart)
+
+	// Also use the same for QRCode or keep ID based?
+	// The previous code generated QRCode AFTER creates using ID.
+	// We can keep that or use OrderNo. User said "Order No needs to be stored".
+	// Let's set QRCode to OrderNo as well (it's unique), or keep the old "ORDER-{ID}" logic?
+	// The prompt implies OrderNo is the main identifier.
+	// But let's stick to the existing QRCode logic "ORDER-{ID}" unless asked to change.
+	// Actually, having two identifiers might be confusing.
+	// But `OrderNo` is display friendly.
 
 	if err := database.DB.Create(&order).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -55,6 +94,14 @@ func GetOrders(c *gin.Context) {
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
+
+	// Search query
+	q := c.Query("q")
+	if q != "" {
+		wildcard := "%" + q + "%"
+		query = query.Where("order_no LIKE ? OR customer_name LIKE ? OR phone LIKE ?", wildcard, wildcard, wildcard)
+	}
+
 	query.Count(&total)
 	query.Offset(offset).Limit(pageSize).Find(&orders)
 
@@ -204,6 +251,19 @@ func UpdateOrderDetails(c *gin.Context) {
 	var input models.Order
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.CustomerName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "客户姓名不能为空"})
+		return
+	}
+	if input.Phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "联系电话不能为空"})
+		return
+	}
+	if input.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "订单金额必须大于0"})
 		return
 	}
 

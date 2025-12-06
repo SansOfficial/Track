@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from '../config';
 
+import { useUI } from '../context/UIContext';
+import { printOrder } from '../utils/print';
+
 function CreateOrder() {
+    const { toast, confirm } = useUI();
     const [formData, setFormData] = useState({
         customer_name: '',
         phone: '',
@@ -37,13 +41,6 @@ function CreateOrder() {
         }
         const newSelected = Array.from(currentSelected);
         setSelectedProducts(newSelected);
-
-        // Optional: Auto-calculate amount
-        // const total = newSelected.reduce((sum, id) => {
-        //     const p = products.find(prod => prod.ID === id);
-        //     return sum + (p ? p.price : 0);
-        // }, 0);
-        // setFormData(prev => ({ ...prev, amount: total }));
     };
 
     const handleSubmit = (e) => {
@@ -62,11 +59,28 @@ function CreateOrder() {
             body: JSON.stringify(payload)
         })
             .then(res => res.json())
-            .then(data => {
-                alert('订单创建成功！');
+            .then(async (data) => {
+                toast.success('订单创建成功');
+
+                // Construct Order object for printing (enrich with product names)
+                const fullProductDetails = selectedProducts.map(id => products.find(p => p.ID === id)).filter(Boolean);
+                const orderForPrint = {
+                    ...data, // includes qr_code
+                    ...payload,
+                    products: fullProductDetails
+                };
+
+                const shouldPrint = await confirm('是否立即打印订单二维码？');
+                if (shouldPrint) {
+                    printOrder(orderForPrint);
+                }
+
                 navigate('/');
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                toast.error('创建失败，请重试');
+            });
     };
 
     return (

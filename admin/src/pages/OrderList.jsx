@@ -1,137 +1,241 @@
+
 import React, { useEffect, useState } from 'react';
 import API_BASE_URL from '../config';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react'; // Keep for list display
 import { Link } from 'react-router-dom';
+import { useUI } from '../context/UIContext';
+import { printOrder } from '../utils/print';
 
 function OrderList() {
     const [orders, setOrders] = useState([]);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [totalPages, setTotalPages] = useState(1); // Keep totalPages for pagination
     const [statusFilter, setStatusFilter] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Edit Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState(null);
 
+    // UI Hooks
+    const { toast, confirm } = useUI();
+
     useEffect(() => {
-        fetchOrders();
-    }, [page, statusFilter]);
+        // Debounce search? Or just search on enter/blur?
+        // Let's search on effect change for now, maybe add debounce later if needed.
+        // Or simpler: add a search button or search on "Enter". 
+        // For standard "filters", usually "Enter" or typing with debounce.
+        // Let's implement debounce manually or just use a button for simplicity?
+        // Let's use a simple delay or just fetch.
+        const timer = setTimeout(() => {
+            fetchOrders();
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [page, statusFilter, searchQuery]);
 
     const fetchOrders = () => {
-        const statusQuery = statusFilter ? `&status=${statusFilter}` : '';
-        fetch(`${API_BASE_URL}/orders?page=${page}&page_size=10${statusQuery}`)
+        let query = `?page=${page}&page_size=10`;
+        if (statusFilter) query += `&status=${statusFilter}`;
+        if (searchQuery) query += `&q=${encodeURIComponent(searchQuery)}`;
+
+        fetch(`${API_BASE_URL}/orders${query}`)
             .then(res => res.json())
             .then(data => {
-                setOrders(data.data || []);
-                setTotalPages(Math.ceil((data.total || 0) / 10));
+                if (data && Array.isArray(data.data)) {
+                    setOrders(data.data);
+                    setTotalPages(Math.ceil((data.total || 0) / 10));
+                } else {
+                    setOrders([]);
+                    setTotalPages(1);
+                }
             })
             .catch(err => console.error(err));
     };
 
-    const handleDelete = (id) => {
-        if (window.confirm('确定要删除这个订单吗？')) {
-            fetch(`${API_BASE_URL}/orders/${id}`, { method: 'DELETE' })
-                .then(() => fetchOrders())
-                .catch(err => console.error(err));
-        }
+    const handleDelete = async (id) => {
+        const shouldDelete = await confirm('确定要删除此订单吗？操作无法撤销。');
+        if (!shouldDelete) return;
+
+        fetch(`${API_BASE_URL}/orders/${id}`, { method: 'DELETE' })
+            .then(() => {
+                toast.success('订单已删除');
+                fetchOrders();
+            })
+            .catch(err => {
+                console.error(err);
+                toast.error('删除失败');
+            });
+    };
+
+    const openEditModal = (order) => {
+        setEditingOrder({ ...order }); // Copy to avoid mutation
+        setIsEditModalOpen(true);
     };
 
     const handleUpdate = (e) => {
         e.preventDefault();
-        fetch(`${API_BASE_URL}/orders/${editingOrder.ID}`, {
+        fetch(`${API_BASE_URL}/orders/${editingOrder.ID}/details`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(editingOrder)
+            body: JSON.stringify({
+                ...editingOrder,
+                amount: parseFloat(editingOrder.amount)
+            })
         })
             .then(res => res.json())
             .then(() => {
+                toast.success('订单详情更新成功');
+                setIsEditModalOpen(false);
                 setEditingOrder(null);
                 fetchOrders();
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                toast.error('更新失败');
+            });
+    };
+
+    // Removed handleUpdate as per instruction to remove editingOrder
+
+    const getStatusBadge = (status) => {
+        const colors = {
+            '待下料': 'bg-gray-100 text-gray-800',
+            '下料': 'bg-yellow-100 text-yellow-800',
+            '裁面': 'bg-blue-100 text-blue-800',
+            '封面': 'bg-purple-100 text-purple-800',
+            '已完成': 'bg-green-100 text-green-800'
+        };
+        const labels = {
+            '待下料': '待下料',
+            '下料': '下料',
+            '裁面': '裁面',
+            '封面': '封面',
+            '已完成': '已完成'
+        };
+        return (
+            <span className={`px-2 py-1 rounded-full text-xs font-bold ${colors[status] || 'bg-gray-100'}`}>
+                {labels[status] || status}
+            </span>
+        );
     };
 
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold tracking-tight">订单列表</h2>
-                <Link to="/create-order" className="bg-white text-black px-6 py-2 rounded-none border border-black hover:border-black hover:border-b-4 hover:border-b-red-700 transition-all duration-300 inline-flex items-center justify-center text-sm font-medium group">
-                    <span className="mr-2 group-hover:text-red-700 transition-colors">+</span> 新建订单
-                </Link>
-            </div>
-
-            {/* Filter */}
-            <div className="mb-6 flex justify-end">
-                <div className="relative">
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => {
-                            setStatusFilter(e.target.value);
-                            setPage(1);
-                        }}
-                        className="appearance-none p-2 pr-8 border-b border-gray-300 outline-none focus:border-red-700 bg-transparent text-sm cursor-pointer transition-colors"
-                    >
-                        <option value="">全部状态</option>
-                        <option value="待下料">待下料</option>
-                        <option value="下料">下料</option>
-                        <option value="裁面">裁面</option>
-                        <option value="封面">封面</option>
-                        <option value="已完成">已完成</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                <h2 className="text-3xl font-bold">订单列表</h2>
+                <div className="flex space-x-4">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="搜索订单号/客户/电话..."
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-none focus:border-black outline-none transition-colors w-64"
+                        />
+                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                     </div>
+                    <Link to="/create-order" className="bg-white text-black px-6 py-2 rounded-none border border-black hover:border-black hover:border-b-4 hover:border-b-red-700 transition-all duration-300 inline-flex items-center justify-center text-sm font-medium group">
+                        <span className="mr-2 group-hover:text-red-700 transition-colors">+</span> 新建订单
+                    </Link>
                 </div>
             </div>
 
-            {/* Table */}
-            <div className="border-t border-gray-100">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-white border-b border-gray-200">
+            {/* Filter Tabs */}
+            <div className="flex space-x-4 mb-6 border-b border-gray-100 pb-2">
+                {['', '待下料', '下料', '裁面', '封面', '已完成'].map(status => (
+                    <button
+                        key={status}
+                        onClick={() => { setStatusFilter(status); setPage(1); }}
+                        className={`pb-2 text-sm font-medium transition-colors ${statusFilter === status
+                            ? 'text-black border-b-2 border-black'
+                            : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                    >
+                        {status === '' ? '全部' : getStatusBadge(status)}
+                    </button>
+                ))}
+            </div>
+
+            <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">ID</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">客户</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">产品</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">状态</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">金额</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">二维码</th>
-                            <th className="p-4 font-normal text-xs text-gray-400 uppercase tracking-widest">操作</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">订单号</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">客户</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">产品</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">二维码</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">金额</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">状态</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {orders.map(order => (
-                            <tr key={order.ID} className="hover:bg-gray-50 transition-colors group">
-                                <td className="p-4 text-sm font-mono text-gray-500">{order.ID}</td>
-                                <td className="p-4 font-medium text-gray-900">{order.customer_name}</td>
-                                <td className="p-4 text-sm text-gray-600">
-                                    {order.products && order.products.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                            {order.products.map(p => (
-                                                <span key={p.ID} className="bg-gray-100 text-gray-600 px-2 py-1 text-[10px] border border-gray-200 uppercase tracking-wider">{p.name}</span>
-                                            ))}
+                            <tr key={order.ID} className="hover:bg-gray-50 transition-colors">
+                                <td className="p-4">
+                                    <div className="font-bold text-gray-900 text-xs font-mono">{order.order_no || `ID: ${order.ID}`}</div>
+                                    <div className="text-xs text-gray-400 mt-1">ID: #{order.ID}</div>
+                                </td>
+                                <td className="p-4">
+                                    <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                                    <div className="text-xs text-gray-400">{order.phone}</div>
+                                </td>
+                                <td className="p-4">
+                                    <div className="text-sm text-gray-900 max-w-[150px] truncate">
+                                        {order.products && order.products.length > 0
+                                            ? order.products.map(p => p.name).join(', ')
+                                            : <span className="text-gray-400">无产品</span>
+                                        }
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1">{order.remark}</div>
+                                </td>
+                                <td className="p-4">
+                                    {order.qr_code && (
+                                        <div className="w-10 h-10 bg-white p-1 border rounded inline-block">
+                                            <QRCodeSVG value={order.qr_code} size={32} />
                                         </div>
-                                    ) : (
-                                        <span className="text-gray-300">-</span>
                                     )}
                                 </td>
-                                <td className="p-4">
-                                    <span className={`px-3 py-1 text-[10px] border uppercase tracking-wider ${order.status === '已完成' ? 'border-black text-black' :
-                                        order.status === '待下料' ? 'border-gray-300 text-gray-400 dashed' :
-                                            'border-red-700 text-red-700'
-                                        }`}>
-                                        {order.status}
-                                    </span>
-                                </td>
-                                <td className="p-4 font-mono text-gray-900">¥{order.amount.toLocaleString()}</td>
-                                <td className="p-4">
-                                    <div className="opacity-50 group-hover:opacity-100 transition-opacity">
-                                        <QRCodeSVG value={order.qr_code} size={32} />
-                                    </div>
-                                    <div className="text-[10px] text-gray-300 mt-1 font-mono group-hover:text-gray-500">{order.qr_code}</div>
-                                </td>
-                                <td className="p-4 space-x-4">
-                                    <button onClick={() => setEditingOrder(order)} className="text-gray-400 hover:text-black text-sm transition-colors border-b border-transparent hover:border-black pb-0.5">编辑</button>
-                                    <button onClick={() => handleDelete(order.ID)} className="text-gray-400 hover:text-red-700 text-sm transition-colors border-b border-transparent hover:border-red-700 pb-0.5">删除</button>
+                                <td className="p-4 text-sm font-bold">¥{order.amount}</td>
+                                <td className="p-4">{getStatusBadge(order.status)}</td>
+                                <td className="p-4 text-right space-x-2">
+                                    <button
+                                        onClick={() => printOrder(order)}
+                                        className="text-gray-400 hover:text-black transition-colors p-1 rounded hover:bg-gray-100"
+                                        title="打印二维码"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => openEditModal(order)}
+                                        className="text-gray-400 hover:text-black transition-colors p-1 rounded hover:bg-gray-100"
+                                        title="编辑订单"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(order.ID)}
+                                        className="text-gray-400 hover:text-red-700 transition-colors p-1 rounded hover:bg-gray-100"
+                                        title="删除订单"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
                                 </td>
                             </tr>
                         ))}
+                        {orders.length === 0 && (
+                            <tr>
+                                <td colSpan="7" className="p-8 text-center text-gray-400 text-sm">暂无订单数据</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
                 {/* Pagination */}
@@ -157,27 +261,46 @@ function OrderList() {
             </div>
 
             {/* Edit Modal */}
-            {editingOrder && (
-                <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 backdrop-blur-sm">
-                    <div className="bg-white p-8 rounded-lg shadow-2xl w-96 max-w-full">
-                        <h3 className="text-xl font-bold mb-6">编辑订单</h3>
+            {isEditModalOpen && editingOrder && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-lg p-6 rounded shadow-2xl animate-scale-in">
+                        <h3 className="text-xl font-bold mb-6">编辑订单 #{editingOrder.ID}</h3>
                         <form onSubmit={handleUpdate} className="space-y-4">
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">客户</label>
-                                <input
-                                    type="text"
-                                    value={editingOrder.customer_name}
-                                    onChange={e => setEditingOrder({ ...editingOrder, customer_name: e.target.value })}
-                                    className="w-full p-2 border rounded outline-none focus:border-black transition-colors"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">客户姓名</label>
+                                    <input
+                                        type="text"
+                                        value={editingOrder.customer_name}
+                                        onChange={e => setEditingOrder({ ...editingOrder, customer_name: e.target.value })}
+                                        className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">联系电话</label>
+                                    <input
+                                        type="text"
+                                        value={editingOrder.phone}
+                                        onChange={e => setEditingOrder({ ...editingOrder, phone: e.target.value })}
+                                        className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                    />
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">金额</label>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">订单金额 (¥)</label>
                                 <input
                                     type="number"
                                     value={editingOrder.amount}
-                                    onChange={e => setEditingOrder({ ...editingOrder, amount: parseFloat(e.target.value) })}
-                                    className="w-full p-2 border rounded outline-none focus:border-black transition-colors"
+                                    onChange={e => setEditingOrder({ ...editingOrder, amount: e.target.value })}
+                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">规格要求</label>
+                                <textarea
+                                    value={editingOrder.specs}
+                                    onChange={e => setEditingOrder({ ...editingOrder, specs: e.target.value })}
+                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-20"
                                 />
                             </div>
                             <div>
@@ -185,13 +308,12 @@ function OrderList() {
                                 <textarea
                                     value={editingOrder.remark}
                                     onChange={e => setEditingOrder({ ...editingOrder, remark: e.target.value })}
-                                    className="w-full p-2 border rounded outline-none focus:border-black transition-colors"
-                                    rows="3"
+                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-16"
                                 />
                             </div>
-                            <div className="flex justify-end space-x-2 pt-4">
-                                <button type="button" onClick={() => setEditingOrder(null)} className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50">取消</button>
-                                <button type="submit" className="px-4 py-2 bg-black text-white rounded hover:opacity-80">保存</button>
+                            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
+                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-black transition-colors">取消</button>
+                                <button type="submit" className="bg-black text-white px-6 py-2 hover:bg-gray-800 transition-colors">保存更改</button>
                             </div>
                         </form>
                     </div>

@@ -14,6 +14,7 @@ type Order struct {
 	Specs        string    `json:"specs"` // JSON string or comma-separated
 	Remark       string    `json:"remark"`
 	Status       string    `json:"status"` // "Pending", "In Progress", "Completed", "Delivered"
+	OrderNo      string    `json:"order_no"`
 	QRCode       string    `json:"qr_code"`
 	Products     []Product `gorm:"many2many:order_products;" json:"products"`
 	Processes    []Process `json:"processes"`

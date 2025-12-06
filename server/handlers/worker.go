@@ -19,6 +19,11 @@ func CreateWorker(c *gin.Context) {
 		return
 	}
 
+	if worker.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "工人姓名不能为空"})
+		return
+	}
+
 	if err := database.DB.Create(&worker).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -41,6 +46,11 @@ func UpdateWorker(c *gin.Context) {
 		return
 	}
 
+	if input.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "工人姓名不能为空"})
+		return
+	}
+
 	worker.Name = input.Name
 	worker.Station = input.Station
 	worker.Phone = input.Phone
@@ -58,9 +68,22 @@ func GetWorkers(c *gin.Context) {
 
 	var workers []models.Worker
 	var total int64
+	query := database.DB.Model(&models.Worker{})
 
-	database.DB.Model(&models.Worker{}).Count(&total)
-	database.DB.Offset(offset).Limit(pageSize).Find(&workers)
+	// Filters
+	station := c.Query("station")
+	if station != "" {
+		query = query.Where("station = ?", station)
+	}
+
+	q := c.Query("q")
+	if q != "" {
+		wildcard := "%" + q + "%"
+		query = query.Where("name LIKE ? OR phone LIKE ?", wildcard, wildcard)
+	}
+
+	query.Count(&total)
+	query.Offset(offset).Limit(pageSize).Find(&workers)
 
 	c.JSON(http.StatusOK, gin.H{
 		"data":  workers,
@@ -279,4 +302,20 @@ func UpdateProfile(c *gin.Context) {
 	database.DB.Save(&worker)
 
 	c.JSON(http.StatusOK, worker)
+}
+
+func DeleteWorker(c *gin.Context) {
+	id := c.Param("id")
+	var worker models.Worker
+	if err := database.DB.First(&worker, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Worker not found"})
+		return
+	}
+
+	if err := database.DB.Delete(&worker).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete worker"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Worker deleted successfully"})
 }
