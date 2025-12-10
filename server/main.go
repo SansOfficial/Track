@@ -38,13 +38,11 @@ func main() {
 		// Public Auth
 		api.POST("/login", handlers.Login)
 
-		// Public/Worker Routes (Unprotected for now to Support Mini Program)
+		// Public/Worker Routes
 		api.POST("/scan", handlers.ScanQRCode)
-		api.POST("/auth/wechat", handlers.WeChatLogin)
-		api.POST("/auth/wechat/phone", handlers.WeChatPhoneLogin)
-		api.POST("/worker/bind", handlers.BindWorker)
 		api.POST("/worker/profile", handlers.UpdateProfile)
 		api.POST("/worker/login", handlers.LoginWorker)
+		api.GET("/workers/:id", handlers.GetWorker) // Public for Station App Identifier Check
 
 		// Worker Order Operations
 		api.GET("/orders/:id", handlers.GetOrder)                 // Used by Worker to see details

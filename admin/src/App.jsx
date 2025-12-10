@@ -26,6 +26,7 @@ const NavLink = ({ to, children }) => {
 import { UIProvider } from './context/UIContext';
 
 import Login from './pages/Login';
+import Station from './pages/Station';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected Route Component
@@ -83,9 +84,15 @@ function AppContent() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/station" element={<Station />} />
         <Route path="*" element={<Login />} />
       </Routes>
     );
+  }
+
+  // Station view for authenticated users (skip sidebar)
+  if (location.pathname === '/station') {
+    return <Station />;
   }
 
   return (

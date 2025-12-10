@@ -94,7 +94,7 @@ func DeleteProduct(c *gin.Context) {
 
 	// Check if product is associated with any orders
 	var count int64
-	database.DB.Table("order_products").Where("product_id = ?", product.ID).Count(&count)
+	database.DB.Table("order_products").Where("product_id = ? AND deleted_at IS NULL", product.ID).Count(&count)
 	if count > 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "该产品已绑定订单，无法删除"})
 		return

@@ -71,7 +71,13 @@ function WorkerManager() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newWorker)
         })
-            .then(res => res.json())
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || '操作失败');
+                }
+                return data;
+            })
             .then(() => {
                 toast.success(newWorker.ID ? '工人更新成功' : '工人添加成功');
                 closeModal();
@@ -80,7 +86,7 @@ function WorkerManager() {
             })
             .catch(err => {
                 console.error(err);
-                toast.error('操作失败');
+                toast.error(err.message || '操作失败');
             });
     };
 

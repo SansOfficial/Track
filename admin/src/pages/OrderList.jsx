@@ -60,13 +60,20 @@ function OrderList() {
         if (!shouldDelete) return;
 
         fetchWithAuth(`${API_BASE_URL}/orders/${id}`, { method: 'DELETE' })
+            .then(async res => {
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || '删除失败');
+                }
+                return res.json();
+            })
             .then(() => {
                 toast.success('订单已删除');
                 fetchOrders();
             })
             .catch(err => {
                 console.error(err);
-                toast.error('删除失败');
+                toast.error(err.message || '删除失败');
             });
     };
 

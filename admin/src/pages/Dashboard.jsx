@@ -32,11 +32,17 @@ function Dashboard() {
     const COLORS = ['#000000', '#b91c1c', '#a8a29e', '#57534e', '#d1d5db'];
     // Logic: Black (Completed), Red (Active), Grays (Waiting/Others)
 
-    // Helper to assign color based on status name (optional refinement)
+    // Helper to assign color based on status name
     const getStatusColor = (status) => {
-        if (status === '已完成') return '#000000'; // Black
-        if (status.includes('待')) return '#b91c1c'; // Red (Pending action)
-        return '#d1d5db'; // Gray (In progress or plain)
+        const colorMap = {
+            '已完成': '#000000', // Black
+            '待下料': '#b91c1c', // Red
+            '待裁面': '#c2410c', // Orange
+            '待封面': '#b45309', // Amber
+            '待送货': '#15803d', // Green
+            '待收款': '#0f766e', // Teal
+        };
+        return colorMap[status] || '#d1d5db'; // Default Gray
     };
 
     const getPeriodLabel = () => {

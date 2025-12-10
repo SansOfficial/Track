@@ -61,7 +61,13 @@ function ProductManager() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...newProduct, price: parseFloat(newProduct.price) })
         })
-            .then(res => res.json())
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || '操作失败');
+                }
+                return data;
+            })
             .then(() => {
                 toast.success(newProduct.ID ? '产品更新成功' : '产品添加成功');
                 closeModal();
@@ -69,7 +75,7 @@ function ProductManager() {
             })
             .catch(err => {
                 console.error(err);
-                toast.error('操作失败');
+                toast.error(err.message || '操作失败');
             });
     };
 

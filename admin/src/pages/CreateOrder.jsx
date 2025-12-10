@@ -9,6 +9,10 @@ import { printOrder } from '../utils/print';
 function CreateOrder() {
     const { fetchWithAuth } = useAuth();
     const { toast, confirm } = useUI();
+
+    // Debug log to verify version
+    useEffect(() => console.log('CreateOrder Component Loaded - v20251206-2'), []);
+
     const [formData, setFormData] = useState({
         customer_name: '',
         phone: '',
@@ -60,7 +64,13 @@ function CreateOrder() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         })
-            .then(res => res.json())
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || '创建失败');
+                }
+                return data;
+            })
             .then(async (data) => {
                 toast.success('订单创建成功');
 
@@ -81,7 +91,7 @@ function CreateOrder() {
             })
             .catch(err => {
                 console.error(err);
-                toast.error('创建失败，请重试');
+                toast.error(err.message || '创建失败，请重试');
             });
     };
 
