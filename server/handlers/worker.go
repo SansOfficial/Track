@@ -51,8 +51,6 @@ func UpdateWorker(c *gin.Context) {
 	worker.Name = input.Name
 	worker.Station = input.Station
 	worker.Phone = input.Phone
-	worker.OpenID = input.OpenID
-	// We don't update Avatar/Nickname here usually, but we could. For now let's stick to admin fields.
 
 	database.DB.Save(&worker)
 	c.JSON(http.StatusOK, worker)
@@ -118,30 +116,6 @@ func LoginWorker(c *gin.Context) {
 
 // WeChat-related authentication functions have been removed.
 // Workers now use the Station mode or direct LoginWorker API.
-
-func UpdateProfile(c *gin.Context) {
-	var input struct {
-		WorkerID uint   `json:"worker_id"`
-		Nickname string `json:"nickname"`
-		Avatar   string `json:"avatar"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var worker models.Worker
-	if err := database.DB.First(&worker, input.WorkerID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Worker not found"})
-		return
-	}
-
-	worker.Nickname = input.Nickname
-	worker.Avatar = input.Avatar
-	database.DB.Save(&worker)
-
-	c.JSON(http.StatusOK, worker)
-}
 
 func DeleteWorker(c *gin.Context) {
 	id := c.Param("id")

@@ -40,7 +40,6 @@ func main() {
 
 		// Public/Worker Routes
 		api.POST("/scan", handlers.ScanQRCode)
-		api.POST("/worker/profile", handlers.UpdateProfile)
 		api.POST("/worker/login", handlers.LoginWorker)
 		api.GET("/workers/:id", handlers.GetWorker) // Public for Station App Identifier Check
 
@@ -72,8 +71,14 @@ func main() {
 			admin.PUT("/workers/:id", handlers.UpdateWorker)
 			admin.DELETE("/workers/:id", handlers.DeleteWorker)
 			admin.GET("/workers", handlers.GetWorkers)
+
+			// Upload
+			admin.POST("/upload", handlers.UploadFile)
 		}
 	}
+
+	// Serve Uploaded Images
+	r.Static("/uploads", "./uploads")
 
 	// Serve Static Files (Frontend)
 	r.Static("/assets", "./dist/assets")

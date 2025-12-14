@@ -100,6 +100,35 @@ function ProductManager() {
         }
     };
 
+    // Base URL for Images (Remove /api from API_BASE_URL)
+    const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetchWithAuth(`${API_BASE_URL}/upload`, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.url) {
+                    setNewProduct({ ...newProduct, image: data.url });
+                    toast.success('图片上传成功');
+                } else {
+                    toast.error('图片上传失败');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                toast.error('上传出错');
+            });
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -130,6 +159,7 @@ function ProductManager() {
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">图片</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">名称</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">编号 / Code</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">单价</th>
@@ -139,6 +169,17 @@ function ProductManager() {
                     <tbody className="divide-y divide-gray-50">
                         {products.map(product => (
                             <tr key={product.ID} className="hover:bg-gray-50 transition-colors">
+                                <td className="p-4">
+                                    {product.image ? (
+                                        <img
+                                            src={product.image.startsWith('http') ? product.image : `${IMAGE_BASE_URL}${product.image}`}
+                                            alt={product.name}
+                                            className="w-12 h-12 object-cover rounded border border-gray-100"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400">无图</div>
+                                    )}
+                                </td>
                                 <td className="p-4 font-medium text-gray-900">{product.name}</td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{product.code}</td>
                                 <td className="p-4 text-red-700 font-bold">¥{product.price}</td>
@@ -166,7 +207,7 @@ function ProductManager() {
                         ))}
                         {products.length === 0 && (
                             <tr>
-                                <td colSpan="4" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
+                                <td colSpan="5" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
                             </tr>
                         )}
                     </tbody>
@@ -179,6 +220,32 @@ function ProductManager() {
                     <div className="bg-white w-full max-w-md p-6 rounded shadow-2xl animate-scale-in">
                         <h3 className="text-xl font-bold mb-6">{newProduct.ID ? '编辑产品' : '添加新产品'}</h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">产品图片</label>
+                                <div className="flex items-center space-x-4">
+                                    <div className="w-16 h-16 bg-gray-100 rounded border border-gray-200 flex items-center justify-center overflow-hidden">
+                                        {newProduct.image ? (
+                                            <img
+                                                src={newProduct.image.startsWith('http') ? newProduct.image : `${IMAGE_BASE_URL}${newProduct.image}`}
+                                                alt="Preview"
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <span className="text-xs text-gray-400">无图</span>
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleFileUpload}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-0 file:text-xs file:font-semibold file:bg-black file:text-white hover:file:bg-gray-800 transition-colors cursor-pointer"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">支持 JPG, PNG. 建议 1:1 比例.</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label className="block text-gray-700 text-sm font-bold mb-2">产品名称</label>
                                 <input

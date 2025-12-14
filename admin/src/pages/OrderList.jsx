@@ -110,21 +110,15 @@ function OrderList() {
     const getStatusBadge = (status) => {
         const colors = {
             '待下料': 'bg-gray-100 text-gray-800',
-            '下料': 'bg-yellow-100 text-yellow-800',
-            '裁面': 'bg-blue-100 text-blue-800',
-            '封面': 'bg-purple-100 text-purple-800',
+            '待裁面': 'bg-yellow-100 text-yellow-800',
+            '待封面': 'bg-blue-100 text-blue-800',
+            '待送货': 'bg-teal-100 text-teal-800',
+            '待收款': 'bg-indigo-100 text-indigo-800',
             '已完成': 'bg-green-100 text-green-800'
-        };
-        const labels = {
-            '待下料': '待下料',
-            '下料': '下料',
-            '裁面': '裁面',
-            '封面': '封面',
-            '已完成': '已完成'
         };
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-bold ${colors[status] || 'bg-gray-100'}`}>
-                {labels[status] || status}
+                {status}
             </span>
         );
     };
@@ -153,12 +147,12 @@ function OrderList() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex space-x-4 mb-6 border-b border-gray-100 pb-2">
-                {['', '待下料', '下料', '裁面', '封面', '已完成'].map(status => (
+            <div className="flex space-x-4 mb-6 border-b border-gray-100 pb-2 overflow-x-auto">
+                {['', '待下料', '待裁面', '待封面', '待送货', '待收款', '已完成'].map(status => (
                     <button
                         key={status}
                         onClick={() => { setStatusFilter(status); setPage(1); }}
-                        className={`pb-2 text-sm font-medium transition-colors ${statusFilter === status
+                        className={`pb-2 text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === status
                             ? 'text-black border-b-2 border-black'
                             : 'text-gray-400 hover:text-gray-600'
                             }`}

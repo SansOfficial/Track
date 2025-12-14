@@ -149,8 +149,6 @@ function WorkerManager() {
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">姓名</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">工位</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">电话</th>
-                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">OpenID</th>
-                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">登录二维码</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">操作</th>
                         </tr>
                     </thead>
@@ -164,14 +162,6 @@ function WorkerManager() {
                                     </span>
                                 </td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{worker.phone}</td>
-                                <td className="p-4 text-gray-400 font-mono text-xs truncate max-w-[100px]" title={worker.openid}>
-                                    {worker.openid || '-'}
-                                </td>
-                                <td className="p-4">
-                                    <div className="bg-white p-1 border rounded inline-block">
-                                        <QRCodeSVG value={JSON.stringify({ type: 'login', id: worker.ID })} size={40} />
-                                    </div>
-                                </td>
                                 <td className="p-4 text-right space-x-2">
                                     <button
                                         onClick={() => openModal(worker)}
@@ -261,16 +251,7 @@ function WorkerManager() {
                                     className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">OpenID</label>
-                                <input
-                                    type="text"
-                                    value={newWorker.openid || ''}
-                                    onChange={e => setNewWorker({ ...newWorker, openid: e.target.value })}
-                                    placeholder="可选，通常由系统自动绑定"
-                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors font-mono text-xs"
-                                />
-                            </div>
+
                             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
                                 <button type="button" onClick={closeModal} className="px-4 py-2 text-gray-500 hover:text-black transition-colors">取消</button>
                                 <button type="submit" className="bg-black text-white px-6 py-2 hover:bg-gray-800 transition-colors">{newWorker.ID ? '保存更改' : '确认添加'}</button>

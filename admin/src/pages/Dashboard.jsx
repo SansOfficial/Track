@@ -4,13 +4,32 @@ import API_BASE_URL from '../config';
 
 import { useAuth } from '../context/AuthContext';
 
+const CustomYAxisTick = ({ x, y, payload }) => {
+    return (
+        <g transform={`translate(${16},${y})`}>
+            <text
+                x={0}
+                y={0}
+                dy={4} // Vertical centering adjustment
+                textAnchor="start"
+                fill="#374151"
+                fontSize={11}
+                fontWeight={500}
+            >
+                {payload.value}
+            </text>
+        </g>
+    );
+};
+
 function Dashboard() {
     const { fetchWithAuth } = useAuth();
     const [stats, setStats] = useState({
         summary: { total: 0, completed: 0, revenue: 0 },
         trend: [],
         status_dist: [],
-        top_products: []
+        top_products: [],
+        top_customers: []
     });
     const [period, setPeriod] = useState('week'); // week, month, year
 
@@ -22,7 +41,8 @@ function Dashboard() {
                     summary: (data && data.summary) || { total: 0, completed: 0, revenue: 0 },
                     trend: (data && Array.isArray(data.trend)) ? data.trend : [],
                     status_dist: (data && Array.isArray(data.status_dist)) ? data.status_dist : [],
-                    top_products: (data && Array.isArray(data.top_products)) ? data.top_products : []
+                    top_products: (data && Array.isArray(data.top_products)) ? data.top_products : [],
+                    top_customers: (data && Array.isArray(data.top_customers)) ? data.top_customers : []
                 });
             })
             .catch(err => console.error(err));
@@ -162,29 +182,57 @@ function Dashboard() {
                 </div>
             </div>
 
-            {/* Product Sales Section */}
-            <div className="card h-80 flex flex-col">
-                <h3 className="text-sm font-bold mb-6 border-l-4 border-gray-800 pl-3">产品销量排行 (Top 5)</h3>
-                <div className="flex-1 w-full text-xs">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={stats.top_products} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                            <XAxis type="number" hide />
-                            <YAxis
-                                dataKey="name"
-                                type="category"
-                                tickLine={false}
-                                axisLine={false}
-                                width={100}
-                                tick={{ fill: '#374151', fontSize: 11, fontWeight: 500 }}
-                            />
-                            <Tooltip
-                                cursor={{ fill: '#f9fafb' }}
-                                contentStyle={{ border: '1px solid #f3f4f6', boxShadow: 'none', borderRadius: '0px' }}
-                            />
-                            <Bar dataKey="count" name="销量" fill="#57534e" radius={[0, 4, 4, 0]} barSize={20}>
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+            {/* Bottom Row: Products & Customers */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Top Products */}
+                <div className="card h-80 flex flex-col">
+                    <h3 className="text-sm font-bold mb-6 border-l-4 border-gray-800 pl-3">畅销产品 (Top 5)</h3>
+                    <div className="flex-1 w-full text-xs">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart layout="vertical" data={stats.top_products} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                <XAxis type="number" hide />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    width={120}
+                                    tick={<CustomYAxisTick />}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: '#f9fafb' }}
+                                    contentStyle={{ border: '1px solid #f3f4f6', boxShadow: 'none', borderRadius: '0px' }}
+                                />
+                                <Bar dataKey="count" name="销量" fill="#57534e" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Top Customers */}
+                <div className="card h-80 flex flex-col">
+                    <h3 className="text-sm font-bold mb-6 border-l-4 border-teal-700 pl-3">活跃客户 (Top 5)</h3>
+                    <div className="flex-1 w-full text-xs">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart layout="vertical" data={stats.top_customers} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                                <XAxis type="number" hide />
+                                <YAxis
+                                    dataKey="name"
+                                    type="category"
+                                    tickLine={false}
+                                    axisLine={false}
+                                    width={120}
+                                    tick={<CustomYAxisTick />}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: '#f9fafb' }}
+                                    contentStyle={{ border: '1px solid #f3f4f6', boxShadow: 'none', borderRadius: '0px' }}
+                                    formatter={(value, name) => [value, name === 'total_amount' ? '消费金额' : '订单数']}
+                                />
+                                <Bar dataKey="count" name="订单数" fill="#0f766e" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             </div>
 

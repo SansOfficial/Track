@@ -104,7 +104,22 @@ func GetDashboardStats(c *gin.Context) {
 		Limit(5).
 		Scan(&topProducts)
 
-	// 4. Global Counts
+	// 4. Top Customers (Active Users)
+	type CustomerStat struct {
+		Name        string  `json:"name"`
+		Count       int64   `json:"count"`
+		TotalAmount float64 `json:"total_amount"`
+	}
+	topCustomers := make([]CustomerStat, 0)
+	database.DB.Model(&models.Order{}).
+		Select("customer_name as name, count(*) as count, sum(amount) as total_amount").
+		Where("customer_name != ''").
+		Group("customer_name").
+		Order("count desc").
+		Limit(5).
+		Scan(&topCustomers)
+
+	// 5. Global Counts
 	var total int64
 	var completed int64
 	var revenue float64
@@ -113,9 +128,10 @@ func GetDashboardStats(c *gin.Context) {
 	database.DB.Model(&models.Order{}).Select("COALESCE(SUM(amount), 0)").Scan(&revenue)
 
 	c.JSON(http.StatusOK, gin.H{
-		"status_dist":  statusStats,
-		"trend":        trend,
-		"top_products": topProducts,
+		"status_dist":   statusStats,
+		"trend":         trend,
+		"top_products":  topProducts,
+		"top_customers": topCustomers,
 		"summary": gin.H{
 			"total":     total,
 			"completed": completed,
