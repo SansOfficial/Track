@@ -17,25 +17,58 @@ function CreateOrder() {
         customer_name: '',
         phone: '',
         amount: 0,
+        deadline_str: new Date().toISOString().split('T')[0], // Default to today
         specs: '',
         remark: ''
     });
     const [products, setProducts] = useState([]);
+    const [customers, setCustomers] = useState([]);
+    const [filteredCustomers, setFilteredCustomers] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const [selectedProducts, setSelectedProducts] = useState([]); // Array of product IDs
 
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Fetch products for selection
+        // Fetch products
         fetchWithAuth(`${API_BASE_URL}/products`)
             .then(res => res.json())
             .then(data => setProducts(data))
+            .catch(err => console.error(err));
+
+        // Fetch customers
+        fetchWithAuth(`${API_BASE_URL}/customers`)
+            .then(res => res.json())
+            .then(data => setCustomers(data))
             .catch(err => console.error(err));
     }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+
+        if (name === 'customer_name') {
+            if (value.trim()) {
+                const matches = customers.filter(c =>
+                    c.name.toLowerCase().includes(value.toLowerCase()) ||
+                    c.phone.includes(value)
+                );
+                setFilteredCustomers(matches);
+                setShowSuggestions(true);
+            } else {
+                setFilteredCustomers([]);
+                setShowSuggestions(false);
+            }
+        }
+    };
+
+    const handleSelectCustomer = (customer) => {
+        setFormData({
+            ...formData,
+            customer_name: customer.name,
+            phone: customer.phone
+        });
+        setShowSuggestions(false);
     };
 
     const handleProductToggle = (productId, price) => {
@@ -99,10 +132,41 @@ function CreateOrder() {
         <div className="max-w-2xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">新建订单</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                    <div className="relative">
                         <label className="block text-gray-700 font-bold mb-2">客户姓名</label>
-                        <input type="text" name="customer_name" value={formData.customer_name} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="请输入客户姓名" />
+                        <input
+                            type="text"
+                            name="customer_name"
+                            value={formData.customer_name}
+                            onChange={handleChange}
+                            onFocus={() => {
+                                if (formData.customer_name) {
+                                    setFilteredCustomers(customers.filter(c => c.name.toLowerCase().includes(formData.customer_name.toLowerCase())));
+                                    setShowSuggestions(true);
+                                }
+                            }}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} // Delay to allow click
+                            required
+                            className="w-full p-2 border rounded"
+                            placeholder="请输入客户姓名 (自动联想)"
+                            autoComplete="off"
+                        />
+                        {showSuggestions && filteredCustomers.length > 0 && (
+                            <div className="absolute z-10 w-full bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto mt-1">
+                                {filteredCustomers.map(c => (
+                                    <div
+                                        key={c.ID}
+                                        onClick={() => handleSelectCustomer(c)}
+                                        className="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-50 last:border-0"
+                                    >
+                                        <div className="font-bold text-sm">{c.name}</div>
+                                        <div className="text-xs text-gray-500">{c.phone}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-gray-700 font-bold mb-2">联系电话</label>
@@ -134,6 +198,11 @@ function CreateOrder() {
                 <div>
                     <label className="block text-gray-700 font-bold mb-2">订单金额 (¥)</label>
                     <input type="number" name="amount" value={formData.amount} onChange={handleChange} required className="w-full p-2 border rounded outline-none focus:border-black transition-colors" placeholder="0.00" />
+                </div>
+
+                <div>
+                    <label className="block text-gray-700 font-bold mb-2">预计完成日期 (Deadline)</label>
+                    <input type="date" name="deadline_str" value={formData.deadline_str} onChange={handleChange} className="w-full p-2 border rounded outline-none focus:border-black transition-colors" />
                 </div>
 
                 <div>

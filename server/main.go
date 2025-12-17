@@ -44,8 +44,10 @@ func main() {
 		api.GET("/workers/:id", handlers.GetWorker) // Public for Station App Identifier Check
 
 		// Worker Order Operations
-		api.GET("/orders/:id", handlers.GetOrder)                 // Used by Worker to see details
+		api.GET("/orders/:id", handlers.GetOrder) // Used by Worker to see details
+
 		api.PUT("/orders/:id/status", handlers.UpdateOrderStatus) // Used by Worker to update status
+		api.GET("/station/stats", handlers.GetStationStats)       // Public for Station Dashboard
 
 		// Protected Admin Routes
 		admin := api.Group("/")
@@ -74,6 +76,12 @@ func main() {
 
 			// Upload
 			admin.POST("/upload", handlers.UploadFile)
+
+			// Customers
+			admin.GET("/customers", handlers.GetCustomers)
+			admin.POST("/customers", handlers.CreateCustomer)
+			admin.PUT("/customers/:id", handlers.UpdateCustomer)
+			admin.DELETE("/customers/:id", handlers.DeleteCustomer)
 		}
 	}
 
@@ -111,5 +119,34 @@ func seedAdmin() {
 				fmt.Println("Admin user seeded successfully.")
 			}
 		}
+	}
+	seedCustomers()
+}
+
+func seedCustomers() {
+	// Seed customers from existing orders if they don't exist
+	var orders []models.Order
+	database.DB.Find(&orders)
+
+	count := 0
+	for _, order := range orders {
+		if order.Phone == "" {
+			continue
+		}
+		var customer models.Customer
+		if err := database.DB.Where("phone = ?", order.Phone).First(&customer).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				newCustomer := models.Customer{
+					Name:   order.CustomerName,
+					Phone:  order.Phone,
+					Remark: "导入自订单" + order.OrderNo,
+				}
+				database.DB.Create(&newCustomer)
+				count++
+			}
+		}
+	}
+	if count > 0 {
+		fmt.Printf("Imported %d customers from existing orders.\n", count)
 	}
 }

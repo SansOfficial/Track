@@ -11,7 +11,8 @@ function WorkerManager() {
     const { toast, confirm } = useUI();
     const [workers, setWorkers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newWorker, setNewWorker] = useState({ name: '', station: '下料', phone: '' });
+    const [qrModalWorker, setQrModalWorker] = useState(null); // Worker to show QR for
+    const [newWorker, setNewWorker] = useState({ name: '', station: '下料', phone: '', scanner_code: '' });
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
@@ -47,14 +48,14 @@ function WorkerManager() {
         if (worker) {
             setNewWorker(worker);
         } else {
-            setNewWorker({ name: '', station: '下料', phone: '' });
+            setNewWorker({ name: '', station: '下料', phone: '', scanner_code: '' });
         }
         setIsModalOpen(true);
     };
 
     const closeModal = () => {
         setIsModalOpen(false);
-        setNewWorker({ name: '', station: '下料', phone: '' });
+        setNewWorker({ name: '', station: '下料', phone: '', scanner_code: '' });
     };
 
     const handleSubmit = (e) => {
@@ -120,6 +121,7 @@ function WorkerManager() {
                         <option value="裁面">裁面</option>
                         <option value="封面">封面</option>
                         <option value="送货">送货</option>
+                        <option value="收款">收款</option>
                     </select>
                     <div className="relative">
                         <input
@@ -148,6 +150,7 @@ function WorkerManager() {
                         <tr>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">姓名</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">工位</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">扫码枪代码</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">电话</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">操作</th>
                         </tr>
@@ -161,8 +164,26 @@ function WorkerManager() {
                                         {worker.station}
                                     </span>
                                 </td>
+                                <td className="p-4">
+                                    {worker.scanner_code ? (
+                                        <span className="font-mono text-sm bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">
+                                            {worker.scanner_code}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-300 text-xs">-</span>
+                                    )}
+                                </td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{worker.phone}</td>
                                 <td className="p-4 text-right space-x-2">
+                                    <button
+                                        onClick={() => setQrModalWorker(worker)}
+                                        className="text-gray-400 hover:text-black transition-colors p-1 rounded hover:bg-gray-100"
+                                        title="显示身份码"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                        </svg>
+                                    </button>
                                     <button
                                         onClick={() => openModal(worker)}
                                         className="text-gray-400 hover:text-black transition-colors p-1 rounded hover:bg-gray-100"
@@ -240,6 +261,7 @@ function WorkerManager() {
                                     <option value="裁面">裁面</option>
                                     <option value="封面">封面</option>
                                     <option value="送货">送货</option>
+                                    <option value="收款">收款</option>
                                 </select>
                             </div>
                             <div>
@@ -251,12 +273,53 @@ function WorkerManager() {
                                     className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">扫码枪代码 (前缀)</label>
+                                <input
+                                    type="text"
+                                    value={newWorker.scanner_code || ''}
+                                    onChange={e => setNewWorker({ ...newWorker, scanner_code: e.target.value })}
+                                    placeholder="例如: XL1#"
+                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">设置后，扫码枪以此开头扫描即可直接识别该工人。</p>
+                            </div>
 
                             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
                                 <button type="button" onClick={closeModal} className="px-4 py-2 text-gray-500 hover:text-black transition-colors">取消</button>
                                 <button type="submit" className="bg-black text-white px-6 py-2 hover:bg-gray-800 transition-colors">{newWorker.ID ? '保存更改' : '确认添加'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* QR Code Modal */}
+            {qrModalWorker && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setQrModalWorker(null)}>
+                    <div className="bg-white p-8 rounded shadow-2xl animate-scale-in text-center" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-2xl font-bold mb-2">{qrModalWorker.name}</h3>
+                        <p className="text-gray-500 mb-6 font-mono text-sm uppercase tracking-widest">{qrModalWorker.station}</p>
+
+                        <div className="bg-white p-4 inline-block border-4 border-black mb-6">
+                            <QRCodeSVG value={`LOGIN:${qrModalWorker.ID}`} size={200} />
+                        </div>
+
+                        <p className="font-mono text-xs text-gray-400 mb-6">LOGIN:{qrModalWorker.ID}</p>
+
+                        <div className="flex justify-center space-x-4">
+                            <button
+                                onClick={() => window.print()}
+                                className="border border-black text-black px-6 py-2 hover:bg-black hover:text-white transition-colors uppercase text-sm font-bold"
+                            >
+                                打印 / Print
+                            </button>
+                            <button
+                                onClick={() => setQrModalWorker(null)}
+                                className="text-gray-400 hover:text-black transition-colors text-sm"
+                            >
+                                关闭 / Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

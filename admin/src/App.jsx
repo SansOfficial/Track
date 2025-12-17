@@ -1,4 +1,5 @@
 import React from 'react';
+import CustomerManager from './pages/CustomerManager';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import CreateOrder from './pages/CreateOrder';
@@ -111,6 +112,7 @@ function AppContent() {
         <nav className="flex-1 space-y-1 mt-6">
           <NavLink to="/">仪表盘</NavLink>
           <NavLink to="/orders">订单列表</NavLink>
+          <NavLink to="/customers">客户管理</NavLink>
           <NavLink to="/products">产品管理</NavLink>
           <NavLink to="/workers">工人管理</NavLink>
 
@@ -130,6 +132,10 @@ function AppContent() {
           <span className="text-lg">📦</span>
           <span className="mt-1">订单</span>
         </Link>
+        <Link to="/customers" className="flex flex-col items-center text-xs text-gray-500 hover:text-black">
+          <span className="text-lg">🧑</span>
+          <span className="mt-1">客户</span>
+        </Link>
         <Link to="/products" className="flex flex-col items-center text-xs text-gray-500 hover:text-black">
           <span className="text-lg">🏷️</span>
           <span className="mt-1">产品</span>
@@ -147,6 +153,7 @@ function AppContent() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/orders" element={<OrderList />} />
           <Route path="/create-order" element={<CreateOrder />} />
+          <Route path="/customers" element={<CustomerManager />} />
           <Route path="/products" element={<ProductManager />} />
           <Route path="/workers" element={<WorkerManager />} />
           <Route path="*" element={<Dashboard />} />

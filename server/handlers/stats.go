@@ -139,3 +139,68 @@ func GetDashboardStats(c *gin.Context) {
 		},
 	})
 }
+
+// GetStationStats 获取工位大屏所需数据
+func GetStationStats(c *gin.Context) {
+	// 1. Today's Overview (Time Range)
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := startOfDay.Add(24 * time.Hour)
+
+	// 2. Total Output Today (Distinct Orders Completed/Processed Today)
+	// We count how many distinct processes were recorded today (meaning a step was finished)
+	var todayOutput int64
+	database.DB.Model(&models.Process{}).Where("created_at >= ? AND created_at < ?", startOfDay, endOfDay).Count(&todayOutput)
+
+	// 3. Worker Leaderboard (Top 3 by Process Count Today)
+	type WorkerStat struct {
+		Name    string `json:"name"`
+		Station string `json:"station"`
+		Count   int64  `json:"count"`
+	}
+	leaderboard := make([]WorkerStat, 0)
+	database.DB.Model(&models.Process{}).
+		Select("workers.name, workers.station, count(*) as count").
+		Joins("join workers on workers.id = processes.worker_id").
+		Where("processes.created_at >= ? AND processes.created_at < ?", startOfDay, endOfDay).
+		Group("workers.id, workers.name, workers.station").
+		Order("count desc").
+		Limit(3).
+		Scan(&leaderboard)
+
+	// 4. Station Progress (Breakdown by Station Today)
+	stationStats := make([]struct {
+		Station string `json:"name"`
+		Count   int64  `json:"value"`
+	}, 0)
+	database.DB.Model(&models.Process{}).
+		Select("station, count(*) as count").
+		Where("created_at >= ? AND created_at < ?", startOfDay, endOfDay).
+		Group("station").
+		Scan(&stationStats)
+
+	// 5. Recent Logs (Real-time feed, mixed success/error)
+	var recentLogs []models.ScanLog
+	database.DB.Order("created_at desc").Limit(20).Find(&recentLogs)
+
+	// 6. Recent Error Logs (Specifically for the error list)
+	var errorLogs []models.ScanLog
+	database.DB.Where("is_success = ?", false).Order("created_at desc").Limit(10).Find(&errorLogs)
+
+	// 7. Upcoming Orders (Next 3 Days)
+	var upcomingOrders []models.Order
+	threeDaysLater := startOfDay.AddDate(0, 0, 3)
+	database.DB.Preload("Products").
+		Where("deadline >= ? AND deadline < ? AND status != ?", startOfDay, threeDaysLater, "已完成").
+		Order("deadline asc, id asc").
+		Find(&upcomingOrders)
+
+	c.JSON(http.StatusOK, gin.H{
+		"today_output":    todayOutput,
+		"leaderboard":     leaderboard,
+		"station_dist":    stationStats,
+		"recent_logs":     recentLogs,
+		"error_logs":      errorLogs,
+		"upcoming_orders": upcomingOrders,
+	})
+}

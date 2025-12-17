@@ -11,13 +11,15 @@ import (
 	"trace-server/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateOrder 创建新订单
 func CreateOrder(c *gin.Context) {
 	var input struct {
 		models.Order
-		ProductIDs []uint `json:"product_ids"`
+		ProductIDs  []uint `json:"product_ids"`
+		DeadlineStr string `json:"deadline_str"` // Receive as string to parse manually if needed, or rely on auto-bind if format is ISO8601
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -45,6 +47,14 @@ func CreateOrder(c *gin.Context) {
 	order := input.Order
 	order.Status = "待下料" // 初始状态
 
+	if input.DeadlineStr != "" {
+		// Assuming format YYYY-MM-DD
+		t, err := time.Parse("2006-01-02", input.DeadlineStr)
+		if err == nil {
+			order.Deadline = &t
+		}
+	}
+
 	// 关联产品
 	if len(input.ProductIDs) > 0 {
 		var products []models.Product
@@ -52,11 +62,25 @@ func CreateOrder(c *gin.Context) {
 		order.Products = products
 	}
 
-	// 生成订单号: ORD-YYYYMMDDHHMMSS-RANDOM
+	// OrderNo generation logic...
 	now := time.Now()
 	timestamp := now.Format("20060102150405")
 	randomPart := rand.Intn(900000) + 100000 // 6位随机数
 	order.OrderNo = fmt.Sprintf("ORD-%s-%06d", timestamp, randomPart)
+
+	// Check if customer exists, if not create
+	var existingCustomer models.Customer
+	if err := database.DB.Where("phone = ?", order.Phone).First(&existingCustomer).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			newCustomer := models.Customer{
+				Name:  order.CustomerName,
+				Phone: order.Phone,
+			}
+			database.DB.Create(&newCustomer)
+		}
+	} else {
+		// Update name if different? Optional. Let's just create if missing for now.
+	}
 
 	// 保存到数据库
 	if err := database.DB.Create(&order).Error; err != nil {
@@ -131,7 +155,7 @@ func GetOrders(c *gin.Context) {
 // GetOrder 获取单个订单详情
 func GetOrder(c *gin.Context) {
 	var order models.Order
-	if err := database.DB.First(&order, c.Param("id")).Error; err != nil {
+	if err := database.DB.Preload("Products").First(&order, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "订单不存在"})
 		return
 	}
@@ -163,8 +187,9 @@ func UpdateOrderStatus(c *gin.Context) {
 func ScanQRCode(c *gin.Context) {
 	// 工人扫描二维码
 	var input struct {
-		QRCode   string `json:"qr_code"`
-		WorkerID uint   `json:"worker_id"`
+		QRCode      string `json:"qr_code"`
+		WorkerID    uint   `json:"worker_id"`
+		ScannerCode string `json:"scanner_code"` // 新增：扫码枪代码前缀
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -200,9 +225,36 @@ func ScanQRCode(c *gin.Context) {
 
 	// 查找工人
 	var worker models.Worker
-	if err := database.DB.First(&worker, input.WorkerID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "工人不存在"})
+	// 优先使用 ScannerCode 查找
+	if input.ScannerCode != "" {
+		if err := database.DB.Where("scanner_code = ?", input.ScannerCode).First(&worker).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "无效的扫码枪代码: " + input.ScannerCode})
+			return
+		}
+	} else if input.WorkerID > 0 {
+		// 兼容旧模式：使用 WorkerID
+		if err := database.DB.First(&worker, input.WorkerID).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "工人不存在"})
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "未提供工人身份信息"})
 		return
+	}
+
+	// Helper to log scan
+	logScan := func(success bool, msg string) {
+		log := models.ScanLog{
+			WorkerID:    worker.ID,
+			WorkerName:  worker.Name,
+			Station:     worker.Station,
+			Content:     input.QRCode,
+			ScannerCode: input.ScannerCode,
+			IsSuccess:   success,
+			Message:     msg,
+			OrderID:     order.ID,
+		}
+		database.DB.Create(&log)
 	}
 
 	// 根据工位更新状态
@@ -237,14 +289,17 @@ func ScanQRCode(c *gin.Context) {
 		order.Status = newStatus
 		database.DB.Save(&order)
 
-		// 记录操作日志
+		// 记录操作日志 (Process)
 		process := models.Process{
-			OrderID:  order.ID,
-			Station:  worker.Station,
-			Status:   "Completed",
-			WorkerID: worker.ID,
+			OrderID:     order.ID,
+			Station:     worker.Station,
+			Status:      "Completed",
+			WorkerID:    worker.ID,
+			CompletedAt: time.Now(),
 		}
 		database.DB.Create(&process)
+
+		logScan(true, fmt.Sprintf("订单 %s 状态更新为 %s", order.OrderNo, newStatus))
 
 		c.JSON(http.StatusOK, gin.H{
 			"message":     "操作成功",
@@ -254,8 +309,11 @@ func ScanQRCode(c *gin.Context) {
 		})
 	} else {
 		// 状态无变化（可能是重复扫描或流程不对）
+		msg := fmt.Sprintf("状态未更新: 当前状态 %s, 工位 %s 不匹配或无需流转", order.Status, worker.Station)
+		logScan(false, msg)
+
 		c.JSON(http.StatusOK, gin.H{
-			"message": "状态未更新 (可能流程不符)",
+			"message": msg,
 			"order":   order,
 		})
 	}
@@ -282,7 +340,10 @@ func UpdateOrderDetails(c *gin.Context) {
 		return
 	}
 
-	var input models.Order
+	var input struct {
+		models.Order
+		DeadlineStr string `json:"deadline_str"`
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -306,7 +367,22 @@ func UpdateOrderDetails(c *gin.Context) {
 	order.Phone = input.Phone
 	order.Amount = input.Amount
 	order.Specs = input.Specs
+	order.Specs = input.Specs
 	order.Remark = input.Remark
+
+	if input.DeadlineStr != "" {
+		t, err := time.Parse("2006-01-02", input.DeadlineStr)
+		if err == nil {
+			order.Deadline = &t
+		}
+	} else {
+		// Allow clearing deadline? Or just ignore if empty?
+		// For now, if empty string sent, maybe we don't clear it unless explicit null,
+		// but struct input usually implies update. Let's assume if it's empty we keep it or
+		// if user wants to clear they might send a specific flag.
+		// Ideally we should check if field is present.
+		// For simplicity in this "Big Screen" context, we update if provided.
+	}
 
 	database.DB.Save(&order)
 	c.JSON(http.StatusOK, order)

@@ -51,6 +51,7 @@ func UpdateWorker(c *gin.Context) {
 	worker.Name = input.Name
 	worker.Station = input.Station
 	worker.Phone = input.Phone
+	worker.ScannerCode = input.ScannerCode
 
 	database.DB.Save(&worker)
 	c.JSON(http.StatusOK, worker)
