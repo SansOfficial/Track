@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"trace-server/database"
 	"trace-server/handlers"
 	"trace-server/middleware"
@@ -35,6 +36,11 @@ func main() {
 
 	api := r.Group("/api")
 	{
+		// Health Check (用于部署验证)
+		api.GET("/health", func(c *gin.Context) {
+			c.JSON(200, gin.H{"status": "ok"})
+		})
+
 		// Public Auth
 		api.POST("/login", handlers.Login)
 
@@ -107,7 +113,12 @@ func main() {
 		c.File("./dist/index.html")
 	})
 
-	r.Run(":8080")
+	// 支持通过环境变量 PORT 指定端口（用于测试部署）
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	r.Run(":" + port)
 }
 
 func seedAdmin() {

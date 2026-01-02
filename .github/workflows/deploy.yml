@@ -57,40 +57,103 @@ jobs:
         # 因为是在本机跑，其实可以直接 go build，但保留参数确保兼容性
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o trace-server-linux main.go
         
-    # 6. 本地直接部署 (替换原本的 SCP 和 SSH Action)
-    # 因为 Runner 就在服务器上，直接 mv/cp 文件即可，速度极快
-    - name: Deploy Locally
+    # 6. 安全部署：先验证新版本能启动，再切换
+    - name: Deploy Locally (Safe Rollback)
       run: |
-        echo "Starting local deployment..."
+        echo "🚀 Starting safe deployment..."
         
-        # 确保目标目录存在
-        mkdir -p ${{ env.DEPLOY_PATH }}/server
-
-        # 停止旧服务 (即使没有运行也不报错)
-        killall trace-server-linux || true
+        DEPLOY_DIR="${{ env.DEPLOY_PATH }}/server"
+        STAGING_DIR="${{ env.DEPLOY_PATH }}/staging"
+        TEST_PORT=18080
         
-        # 清理旧的 dist 目录
-        rm -rf ${{ env.DEPLOY_PATH }}/server/dist
-
-        # 移动新构建的文件到部署目录
-        # 使用 cp 而不是 mv，保留 workspace 干净以便下次构建缓存
-        cp server/trace-server-linux ${{ env.DEPLOY_PATH }}/server/
-        cp -r server/dist ${{ env.DEPLOY_PATH }}/server/
-
-        # 启动服务
-        cd ${{ env.DEPLOY_PATH }}/server
-        chmod +x trace-server-linux
+        # 确保目录存在
+        mkdir -p $DEPLOY_DIR
+        mkdir -p $STAGING_DIR
         
-        # 启动程序
-        nohup ./trace-server-linux > server.log 2>&1 < /dev/null &
+        # ========== 阶段1: 准备新版本到 staging 目录 ==========
+        echo "📦 Stage 1: Preparing new version in staging..."
+        rm -rf $STAGING_DIR/*
+        cp server/trace-server-linux $STAGING_DIR/
+        cp -r server/dist $STAGING_DIR/
+        chmod +x $STAGING_DIR/trace-server-linux
         
-        # 等待并在控制台输出结果
+        # ========== 阶段2: 测试新版本能否启动 ==========
+        echo "🧪 Stage 2: Testing new version on port $TEST_PORT..."
+        cd $STAGING_DIR
+        
+        # 启动测试实例（使用不同端口，不影响生产）
+        PORT=$TEST_PORT nohup ./trace-server-linux > test.log 2>&1 &
+        TEST_PID=$!
+        
+        # 等待启动
+        sleep 3
+        
+        # 检查进程是否存活
+        if ! ps -p $TEST_PID > /dev/null 2>&1; then
+            echo "❌ New version failed to start! Keeping old version running."
+            echo "=== Test Log ==="
+            cat test.log
+            echo "================"
+            exit 1
+        fi
+        
+        # 健康检查：尝试访问 API
+        if ! curl -sf http://localhost:$TEST_PORT/api/health > /dev/null 2>&1; then
+            # 如果没有 health 接口，检查端口是否在监听
+            if ! ss -tlnp | grep -q ":$TEST_PORT"; then
+                echo "❌ New version is not responding! Keeping old version."
+                kill $TEST_PID 2>/dev/null || true
+                cat test.log
+                exit 1
+            fi
+        fi
+        
+        echo "✅ New version passed health check!"
+        
+        # 停止测试实例
+        kill $TEST_PID 2>/dev/null || true
+        sleep 1
+        
+        # ========== 阶段3: 正式切换 ==========
+        echo "🔄 Stage 3: Switching to new version..."
+        
+        # 停止旧的生产服务
+        killall trace-server-linux 2>/dev/null || true
+        sleep 1
+        
+        # 备份旧版本（可选）
+        if [ -f "$DEPLOY_DIR/trace-server-linux" ]; then
+            cp $DEPLOY_DIR/trace-server-linux $DEPLOY_DIR/trace-server-linux.bak 2>/dev/null || true
+        fi
+        
+        # 替换为新版本
+        rm -rf $DEPLOY_DIR/dist
+        cp $STAGING_DIR/trace-server-linux $DEPLOY_DIR/
+        cp -r $STAGING_DIR/dist $DEPLOY_DIR/
+        
+        # 启动新版本
+        cd $DEPLOY_DIR
+        nohup ./trace-server-linux > server.log 2>&1 &
+        PROD_PID=$!
+        
         sleep 2
-        if ps -p $! > /dev/null; then
-           echo "✅ Server started successfully (PID $!)"
-           exit 0
+        
+        if ps -p $PROD_PID > /dev/null 2>&1; then
+            echo "✅ Deployment successful! Server running (PID $PROD_PID)"
+            exit 0
         else
-           echo "❌ Server failed to start. Check server.log:"
-           cat server.log
-           exit 1
+            echo "❌ Production start failed! Attempting rollback..."
+            
+            # 尝试回滚到旧版本
+            if [ -f "$DEPLOY_DIR/trace-server-linux.bak" ]; then
+                mv $DEPLOY_DIR/trace-server-linux.bak $DEPLOY_DIR/trace-server-linux
+                nohup ./trace-server-linux > server.log 2>&1 &
+                sleep 2
+                if ps aux | grep -v grep | grep trace-server-linux > /dev/null; then
+                    echo "⚠️ Rolled back to previous version"
+                fi
+            fi
+            
+            cat server.log
+            exit 1
         fi
