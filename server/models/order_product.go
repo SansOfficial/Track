@@ -16,6 +16,7 @@ type OrderProduct struct {
 	Width      float64 `json:"width"`       // e.g. cm
 	Height     float64 `json:"height"`      // e.g. cm
 	Quantity   int     `json:"quantity"`    // Number of items with these specs
+	Unit       string  `json:"unit"`        // 计量单位: 块、平米、个等
 	UnitPrice  float64 `json:"unit_price"`  // Price per unit
 	TotalPrice float64 `json:"total_price"` // Quantity * UnitPrice
 }

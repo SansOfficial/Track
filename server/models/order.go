@@ -10,6 +10,7 @@ type Order struct {
 	gorm.Model
 	CustomerName  string         `json:"customer_name"`
 	Phone         string         `json:"phone"`
+	Address       string         `json:"address"` // 送货地址
 	Amount        float64        `json:"amount"`
 	Specs         string         `json:"specs"` // JSON string or comma-separated
 	Remark        string         `json:"remark"`

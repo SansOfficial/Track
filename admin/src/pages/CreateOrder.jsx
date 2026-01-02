@@ -4,7 +4,7 @@ import API_BASE_URL from '../config';
 
 import { useUI } from '../context/UIContext';
 import { useAuth } from '../context/AuthContext';
-import { printOrder } from '../utils/print';
+import { printQRCode } from '../utils/print';
 
 function CreateOrder() {
     const { fetchWithAuth } = useAuth();
@@ -13,6 +13,7 @@ function CreateOrder() {
     const [formData, setFormData] = useState({
         customer_name: '',
         phone: '',
+        address: '', // 送货地址
         deadline_str: new Date().toISOString().split('T')[0], // Default to today
         specs: '',
         remark: ''
@@ -26,6 +27,7 @@ function CreateOrder() {
         width: '',
         height: '',
         quantity: 1,
+        unit: '块', // 默认单位
         unit_price: ''
     });
 
@@ -73,7 +75,8 @@ function CreateOrder() {
         setFormData({
             ...formData,
             customer_name: customer.name,
-            phone: customer.phone
+            phone: customer.phone,
+            address: customer.address || '' // 自动带出客户地址
         });
         setShowSuggestions(false);
     };
@@ -101,6 +104,7 @@ function CreateOrder() {
             width: parseFloat(currentItem.width) || 0,
             height: parseFloat(currentItem.height) || 0,
             quantity: parseInt(currentItem.quantity),
+            unit: currentItem.unit || '块',
             unit_price: parseFloat(currentItem.unit_price),
             product_name: product ? product.name : 'Unknown',
             total_price: parseFloat(currentItem.unit_price) * parseInt(currentItem.quantity)
@@ -113,6 +117,7 @@ function CreateOrder() {
             width: '',
             height: '',
             quantity: 1,
+            unit: '块',
             unit_price: ''
         });
     };
@@ -164,9 +169,9 @@ function CreateOrder() {
                     }))
                 };
 
-                const shouldPrint = await confirm('是否立即打印订单二维码？');
+                const shouldPrint = await confirm('是否立即打印订单标签？');
                 if (shouldPrint) {
-                    printOrder(orderForPrint);
+                    printQRCode(orderForPrint);
                 }
 
                 navigate('/');
@@ -224,6 +229,10 @@ function CreateOrder() {
                             <label className="block text-gray-700 font-bold mb-2">联系电话</label>
                             <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required className="w-full p-2 border rounded" placeholder="请输入电话" />
                         </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-gray-700 font-bold mb-2">送货地址</label>
+                            <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-2 border rounded" placeholder="选择客户后自动带出，可手动修改" />
+                        </div>
                     </div>
                 </div>
 
@@ -236,17 +245,17 @@ function CreateOrder() {
 
                     {/* Add Item Form */}
                     <div className="bg-gray-50 p-4 rounded border border-gray-200 mb-6">
-                        <div className="grid grid-cols-12 gap-4 items-end">
-                            <div className="col-span-3">
+                        <div className="grid grid-cols-12 gap-3 items-end">
+                            <div className="col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">选择产品</label>
                                 <select
                                     className="w-full p-2 border rounded text-sm"
                                     value={currentItem.product_id}
                                     onChange={e => setCurrentItem({ ...currentItem, product_id: e.target.value })}
                                 >
-                                    <option value="">-- 选择产品 --</option>
+                                    <option value="">-- 选择 --</option>
                                     {products.map(p => (
-                                        <option key={p.ID} value={p.ID}>{p.name} ({p.code})</option>
+                                        <option key={p.ID} value={p.ID}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -258,15 +267,26 @@ function CreateOrder() {
                                 <label className="block text-xs font-bold text-gray-500 mb-1">宽 (cm)</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.width} onChange={e => setCurrentItem({ ...currentItem, width: e.target.value })} />
                             </div>
-                            <div className="col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">高/厚 (cm)</label>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">厚 (cm)</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.height} onChange={e => setCurrentItem({ ...currentItem, height: e.target.value })} />
                             </div>
                             <div className="col-span-1">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">数量</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="1" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} />
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">单位</label>
+                                <select className="w-full p-2 border rounded text-sm bg-white" value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })}>
+                                    <option value="块">块</option>
+                                    <option value="平米">平米</option>
+                                    <option value="个">个</option>
+                                    <option value="套">套</option>
+                                    <option value="张">张</option>
+                                    <option value="米">米</option>
+                                </select>
+                            </div>
+                            <div className="col-span-1">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">单价 (¥)</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0.00" value={currentItem.unit_price} onChange={e => setCurrentItem({ ...currentItem, unit_price: e.target.value })} />
                             </div>
@@ -283,8 +303,9 @@ function CreateOrder() {
                                 <thead className="bg-gray-100 border-b">
                                     <tr>
                                         <th className="p-3">产品</th>
-                                        <th className="p-3">尺寸 (L x W x H)</th>
+                                        <th className="p-3">尺寸 (长×宽×厚)</th>
                                         <th className="p-3">数量</th>
+                                        <th className="p-3">单位</th>
                                         <th className="p-3">单价</th>
                                         <th className="p-3">小计</th>
                                         <th className="p-3 text-right">操作</th>
@@ -295,20 +316,25 @@ function CreateOrder() {
                                         <tr key={idx}>
                                             <td className="p-3 font-medium">{item.product_name}</td>
                                             <td className="p-3 font-mono text-gray-600">
-                                                {item.length} x {item.width} x {item.height}
+                                                {item.length} × {item.width} × {item.height}
                                             </td>
                                             <td className="p-3">{item.quantity}</td>
+                                            <td className="p-3 text-gray-500">{item.unit}</td>
                                             <td className="p-3">¥{item.unit_price}</td>
                                             <td className="p-3 font-bold">¥{item.total_price}</td>
                                             <td className="p-3 text-right">
-                                                <button type="button" onClick={() => handleRemoveItem(idx)} className="text-red-500 hover:text-red-700">删除</button>
+                                                <button type="button" onClick={() => handleRemoveItem(idx)} className="text-gray-400 hover:text-red-700 transition-colors">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                                 <tfoot className="bg-gray-50 font-bold border-t border-gray-300">
                                     <tr>
-                                        <td colSpan="4" className="p-3 text-right">总金额:</td>
+                                        <td colSpan="5" className="p-3 text-right">总金额:</td>
                                         <td className="p-3 text-lg text-red-600">¥{totalAmount.toFixed(2)}</td>
                                         <td></td>
                                     </tr>

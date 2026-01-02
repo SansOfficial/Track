@@ -22,6 +22,7 @@ func CreateOrder(c *gin.Context) {
 		Width     float64 `json:"width"`
 		Height    float64 `json:"height"`
 		Quantity  int     `json:"quantity"`
+		Unit      string  `json:"unit"` // 计量单位
 		UnitPrice float64 `json:"unit_price"`
 	}
 
@@ -76,6 +77,7 @@ func CreateOrder(c *gin.Context) {
 				Width:      item.Width,
 				Height:     item.Height,
 				Quantity:   item.Quantity,
+				Unit:       item.Unit,
 				UnitPrice:  item.UnitPrice,
 				TotalPrice: total,
 			}
