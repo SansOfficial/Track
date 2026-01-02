@@ -1,20 +1,29 @@
-name: Build and Deploy
+name: Build and Deploy (Self-Hosted)
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    
+  build-and-deploy:
+    # 关键修改：指定在你自己服务器上运行，彻底解决网络慢的问题
+    runs-on: self-hosted
+
+    # 环境变量：定义你的部署绝对路径
+    env:
+      DEPLOY_PATH: /opt/trace
+
     steps:
+    # 1. 拉取代码到你的服务器临时目录
     - name: Checkout code
       uses: actions/checkout@v3
-      
+
+    # 2. 环境配置
+    # 注意：Self-hosted Runner 会自动缓存 Node/Go 环境，
+    # 第二次运行时这一步会非常快（秒级）。
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
@@ -26,78 +35,62 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
-        
+
+    # 3. 构建前端
     - name: Build Frontend
       run: |
         cd admin
         npm ci
         npm run build
         
+    # 4. 准备后端静态文件
     - name: Prepare Backend Static Files
       run: |
         rm -rf server/dist
         mkdir -p server/dist
         cp -r admin/dist/* server/dist/
         
+    # 5. 构建后端 (直接生成二进制文件)
     - name: Build Backend for Linux
       run: |
         cd server
+        # 因为是在本机跑，其实可以直接 go build，但保留参数确保兼容性
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o trace-server-linux main.go
         
-    - name: Create Release Archive
+    # 6. 本地直接部署 (替换原本的 SCP 和 SSH Action)
+    # 因为 Runner 就在服务器上，直接 mv/cp 文件即可，速度极快
+    - name: Deploy Locally
       run: |
-        zip -r release.zip server/trace-server-linux server/dist
+        echo "Starting local deployment..."
         
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-package
-        path: release.zip
-        retention-days: 30
+        # 确保目标目录存在
+        mkdir -p ${{ env.DEPLOY_PATH }}/server
 
-  # Optional: Auto-deploy to server
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: release-package
+        # 停止旧服务 (即使没有运行也不报错)
+        killall trace-server-linux || true
         
-    - name: Deploy to Server via SCP
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        source: "release.zip"
-        target: "/tmp/"
+        # 清理旧的 dist 目录
+        rm -rf ${{ env.DEPLOY_PATH }}/server/dist
+
+        # 移动新构建的文件到部署目录
+        # 使用 cp 而不是 mv，保留 workspace 干净以便下次构建缓存
+        cp server/trace-server-linux ${{ env.DEPLOY_PATH }}/server/
+        cp -r server/dist ${{ env.DEPLOY_PATH }}/server/
+
+        # 启动服务
+        cd ${{ env.DEPLOY_PATH }}/server
+        chmod +x trace-server-linux
         
-    - name: Extract and Restart Service
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        script: |
-          cd /opt/trace
-          killall trace-server-linux || true
-          rm -rf server
-          unzip -o /tmp/release.zip
-          cd server
-          chmod +x trace-server-linux
-          nohup ./trace-server-linux > server.log 2>&1 < /dev/null &
-          # Wait a moment to capture early errors
-          sleep 2
-          if ps -p $! > /dev/null; then
-             echo "Server started successfully (PID $!)"
-             exit 0
-          else
-             echo "Server failed to start. Check server.log:"
-             cat server.log
-             exit 1
-          fi
-          echo "Deployment completed at $(date)"
+        # 启动程序
+        nohup ./trace-server-linux > server.log 2>&1 < /dev/null &
+        
+        # 等待并在控制台输出结果
+        sleep 2
+        if ps -p $! > /dev/null; then
+           echo "✅ Server started successfully (PID $!)"
+           exit 0
+        else
+           echo "❌ Server failed to start. Check server.log:"
+           cat server.log
+           exit 1
+        fi
