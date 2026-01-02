@@ -98,7 +98,7 @@ func GetDashboardStats(c *gin.Context) {
 		Joins("JOIN orders ON orders.id = order_products.order_id").
 		Where("products.deleted_at IS NULL").
 		Where("orders.deleted_at IS NULL").
-		Select("products.name, count(order_products.order_id) as count").
+		Select("products.name, count(order_products.product_id) as count").
 		Group("products.id, products.name").
 		Order("count desc").
 		Limit(5).
@@ -179,9 +179,54 @@ func GetStationStats(c *gin.Context) {
 		Group("station").
 		Scan(&stationStats)
 
-	// 5. Recent Logs (Real-time feed, mixed success/error)
-	var recentLogs []models.ScanLog
-	database.DB.Order("created_at desc").Limit(20).Find(&recentLogs)
+	// 5. Recent Logs (with Order Details)
+	type RecentLog struct {
+		models.ScanLog
+		OrderNo      string `json:"order_no"`
+		CustomerName string `json:"customer_name"`
+		ProductNames string `json:"product_names"`
+	}
+	var recentLogsData []models.ScanLog
+	database.DB.Order("created_at desc").Limit(20).Find(&recentLogsData)
+
+	var recentLogs []RecentLog
+	var orderIDs []uint
+	for _, log := range recentLogsData {
+		if log.OrderID > 0 {
+			orderIDs = append(orderIDs, log.OrderID)
+		}
+	}
+
+	orderMap := make(map[uint]models.Order)
+	if len(orderIDs) > 0 {
+		var orders []models.Order
+		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Where("id IN ?", orderIDs).Find(&orders)
+		for _, o := range orders {
+			orderMap[o.ID] = o
+		}
+	}
+
+	for _, log := range recentLogsData {
+		rl := RecentLog{ScanLog: log}
+		if log.OrderID > 0 {
+			if o, ok := orderMap[log.OrderID]; ok {
+				rl.OrderNo = o.OrderNo
+				rl.CustomerName = o.CustomerName
+				// Join product names
+				var pNames string
+				for i, op := range o.OrderProducts {
+					if i > 0 {
+						pNames += ", "
+					}
+					if op.Product != nil {
+						pNames += op.Product.Name
+					}
+				}
+				rl.ProductNames = pNames
+			}
+		}
+		recentLogs = append(recentLogs, rl)
+	}
 
 	// 6. Recent Error Logs (Specifically for the error list)
 	var errorLogs []models.ScanLog
@@ -190,7 +235,7 @@ func GetStationStats(c *gin.Context) {
 	// 7. Upcoming Orders (Next 3 Days)
 	var upcomingOrders []models.Order
 	threeDaysLater := startOfDay.AddDate(0, 0, 3)
-	database.DB.Preload("Products").
+	database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").
 		Where("deadline >= ? AND deadline < ? AND status != ?", startOfDay, threeDaysLater, "已完成").
 		Order("deadline asc, id asc").
 		Find(&upcomingOrders)

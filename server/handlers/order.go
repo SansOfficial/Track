@@ -16,10 +16,19 @@ import (
 
 // CreateOrder 创建新订单
 func CreateOrder(c *gin.Context) {
+	type OrderItemInput struct {
+		ProductID uint    `json:"product_id"`
+		Length    float64 `json:"length"`
+		Width     float64 `json:"width"`
+		Height    float64 `json:"height"`
+		Quantity  int     `json:"quantity"`
+		UnitPrice float64 `json:"unit_price"`
+	}
+
 	var input struct {
 		models.Order
-		ProductIDs  []uint `json:"product_ids"`
-		DeadlineStr string `json:"deadline_str"` // Receive as string to parse manually if needed, or rely on auto-bind if format is ISO8601
+		Items       []OrderItemInput `json:"items"`
+		DeadlineStr string           `json:"deadline_str"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -39,7 +48,7 @@ func CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "订单金额必须大于0"})
 		return
 	}
-	if len(input.ProductIDs) == 0 {
+	if len(input.Items) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "必须选择至少一个产品"})
 		return
 	}
@@ -55,11 +64,24 @@ func CreateOrder(c *gin.Context) {
 		}
 	}
 
-	// 关联产品
-	if len(input.ProductIDs) > 0 {
-		var products []models.Product
-		database.DB.Find(&products, input.ProductIDs)
-		order.Products = products
+	// 关联产品 (使用 OrderProduct)
+	if len(input.Items) > 0 {
+		var orderProducts []models.OrderProduct
+		for _, item := range input.Items {
+			// Calculate total price for this line item
+			total := item.UnitPrice * float64(item.Quantity)
+			op := models.OrderProduct{
+				ProductID:  item.ProductID,
+				Length:     item.Length,
+				Width:      item.Width,
+				Height:     item.Height,
+				Quantity:   item.Quantity,
+				UnitPrice:  item.UnitPrice,
+				TotalPrice: total,
+			}
+			orderProducts = append(orderProducts, op)
+		}
+		order.OrderProducts = orderProducts
 	}
 
 	// OrderNo generation logic...
@@ -107,7 +129,10 @@ func GetOrders(c *gin.Context) {
 	var total int64
 
 	// 基础查询
-	query := database.DB.Model(&models.Order{}).Preload("Products")
+	query := database.DB.Model(&models.Order{}).
+		Preload("OrderProducts").
+		Preload("OrderProducts.Product").
+		Preload("OrderProducts.Product.AttributeValues.Attribute")
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -155,7 +180,11 @@ func GetOrders(c *gin.Context) {
 // GetOrder 获取单个订单详情
 func GetOrder(c *gin.Context) {
 	var order models.Order
-	if err := database.DB.Preload("Products").First(&order, c.Param("id")).Error; err != nil {
+	if err := database.DB.
+		Preload("OrderProducts").
+		Preload("OrderProducts.Product").
+		Preload("OrderProducts.Product.AttributeValues.Attribute").
+		First(&order, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "订单不存在"})
 		return
 	}

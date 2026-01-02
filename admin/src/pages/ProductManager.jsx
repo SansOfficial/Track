@@ -287,7 +287,7 @@ function ProductManager() {
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">分类</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">名称</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">编号 / Code</th>
-                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">单价</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">规格</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">操作</th>
                         </tr>
                     </thead>
@@ -312,7 +312,19 @@ function ProductManager() {
                                 </td>
                                 <td className="p-4 font-medium text-gray-900">{product.name}</td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{product.code}</td>
-                                <td className="p-4 text-red-700 font-bold">¥{product.price}</td>
+                                <td className="p-4">
+                                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                        {product.attribute_values && product.attribute_values.length > 0 ? (
+                                            product.attribute_values.map((av, idx) => (
+                                                <span key={idx} className="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5 rounded border border-gray-200">
+                                                    {av.attribute?.name}: {av.value}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                        )}
+                                    </div>
+                                </td>
                                 <td className="p-4 text-right space-x-2">
                                     <button
                                         onClick={() => openModal(product)}
@@ -413,15 +425,6 @@ function ProductManager() {
                                     value={newProduct.code}
                                     onChange={e => setNewProduct({ ...newProduct, code: e.target.value })}
                                     placeholder="如: MAT-001"
-                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">单价 (¥)</label>
-                                <input
-                                    type="number"
-                                    value={newProduct.price}
-                                    onChange={e => setNewProduct({ ...newProduct, price: e.target.value })}
                                     className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
                                 />
                             </div>

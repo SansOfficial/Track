@@ -187,10 +187,28 @@ function OrderList() {
                                     <div className="text-xs text-gray-400">{order.phone}</div>
                                 </td>
                                 <td className="p-4">
-                                    <div className="text-sm text-gray-900 max-w-[150px] truncate">
-                                        {order.products && order.products.length > 0
-                                            ? order.products.map(p => p.name).join(', ')
-                                            : <span className="text-gray-400">无产品</span>
+                                    <div className="text-sm text-gray-900 max-w-[250px] space-y-1">
+                                        {order.order_products && order.order_products.length > 0
+                                            ? order.order_products.map((op, idx) => (
+                                                <div key={idx} className="flex flex-col border-b border-gray-100 last:border-0 pb-0.5 mb-1">
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="font-medium">{op.product?.name}</span>
+                                                        <span className="text-gray-500 font-mono scale-90">
+                                                            {op.length}x{op.width}x{op.height} * {op.quantity}
+                                                        </span>
+                                                    </div>
+                                                    {op.product?.attribute_values && op.product.attribute_values.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-0.5 ml-1">
+                                                            {op.product.attribute_values.map((av, i) => (
+                                                                <span key={i} className="text-[10px] text-gray-400 bg-gray-50 px-1 rounded">
+                                                                    {av.attribute?.name}:{av.value}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))
+                                            : <span className="text-gray-400">无明细</span>
                                         }
                                     </div>
                                     <div className="text-xs text-gray-400 mt-1">{order.remark}</div>
@@ -265,65 +283,67 @@ function OrderList() {
             </div>
 
             {/* Edit Modal */}
-            {isEditModalOpen && editingOrder && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-lg p-6 rounded shadow-2xl animate-scale-in">
-                        <h3 className="text-xl font-bold mb-6">编辑订单 #{editingOrder.ID}</h3>
-                        <form onSubmit={handleUpdate} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+            {
+                isEditModalOpen && editingOrder && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white w-full max-w-lg p-6 rounded shadow-2xl animate-scale-in">
+                            <h3 className="text-xl font-bold mb-6">编辑订单 #{editingOrder.ID}</h3>
+                            <form onSubmit={handleUpdate} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-bold mb-2">客户姓名</label>
+                                        <input
+                                            type="text"
+                                            value={editingOrder.customer_name}
+                                            onChange={e => setEditingOrder({ ...editingOrder, customer_name: e.target.value })}
+                                            className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-bold mb-2">联系电话</label>
+                                        <input
+                                            type="text"
+                                            value={editingOrder.phone}
+                                            onChange={e => setEditingOrder({ ...editingOrder, phone: e.target.value })}
+                                            className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                        />
+                                    </div>
+                                </div>
                                 <div>
-                                    <label className="block text-gray-700 text-sm font-bold mb-2">客户姓名</label>
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">订单金额 (¥)</label>
                                     <input
-                                        type="text"
-                                        value={editingOrder.customer_name}
-                                        onChange={e => setEditingOrder({ ...editingOrder, customer_name: e.target.value })}
+                                        type="number"
+                                        value={editingOrder.amount}
+                                        onChange={e => setEditingOrder({ ...editingOrder, amount: e.target.value })}
                                         className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-gray-700 text-sm font-bold mb-2">联系电话</label>
-                                    <input
-                                        type="text"
-                                        value={editingOrder.phone}
-                                        onChange={e => setEditingOrder({ ...editingOrder, phone: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">规格要求</label>
+                                    <textarea
+                                        value={editingOrder.specs}
+                                        onChange={e => setEditingOrder({ ...editingOrder, specs: e.target.value })}
+                                        className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-20"
                                     />
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">订单金额 (¥)</label>
-                                <input
-                                    type="number"
-                                    value={editingOrder.amount}
-                                    onChange={e => setEditingOrder({ ...editingOrder, amount: e.target.value })}
-                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">规格要求</label>
-                                <textarea
-                                    value={editingOrder.specs}
-                                    onChange={e => setEditingOrder({ ...editingOrder, specs: e.target.value })}
-                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-20"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-gray-700 text-sm font-bold mb-2">备注</label>
-                                <textarea
-                                    value={editingOrder.remark}
-                                    onChange={e => setEditingOrder({ ...editingOrder, remark: e.target.value })}
-                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-16"
-                                />
-                            </div>
-                            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
-                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-black transition-colors">取消</button>
-                                <button type="submit" className="bg-black text-white px-6 py-2 hover:bg-gray-800 transition-colors">保存更改</button>
-                            </div>
-                        </form>
+                                <div>
+                                    <label className="block text-gray-700 text-sm font-bold mb-2">备注</label>
+                                    <textarea
+                                        value={editingOrder.remark}
+                                        onChange={e => setEditingOrder({ ...editingOrder, remark: e.target.value })}
+                                        className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors h-16"
+                                    />
+                                </div>
+                                <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 mt-6">
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-black transition-colors">取消</button>
+                                    <button type="submit" className="bg-black text-white px-6 py-2 hover:bg-gray-800 transition-colors">保存更改</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
 

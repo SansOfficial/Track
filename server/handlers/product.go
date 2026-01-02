@@ -23,10 +23,6 @@ func CreateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "产品编号不能为空"})
 		return
 	}
-	if product.Price < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "产品价格不能为负数"})
-		return
-	}
 
 	// 验证分类存在
 	if product.CategoryID > 0 {
@@ -49,7 +45,7 @@ func GetProducts(c *gin.Context) {
 	q := c.Query("q")
 	categoryID := c.Query("category_id")
 	var products []models.Product
-	query := database.DB.Model(&models.Product{}).Preload("Category").Preload("AttributeValues")
+	query := database.DB.Model(&models.Product{}).Preload("Category").Preload("AttributeValues.Attribute")
 
 	if categoryID != "" {
 		query = query.Where("category_id = ?", categoryID)
@@ -85,14 +81,9 @@ func UpdateProduct(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "产品编号不能为空"})
 		return
 	}
-	if input.Price < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "产品价格不能为负数"})
-		return
-	}
 
 	product.Name = input.Name
 	product.Code = input.Code
-	product.Price = input.Price
 	product.Image = input.Image
 
 	database.DB.Save(&product)

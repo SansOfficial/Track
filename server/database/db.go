@@ -38,6 +38,7 @@ func Connect() {
 		&models.Order{},
 		&models.Process{},
 		&models.Product{},
+		&models.OrderProduct{}, // Added OrderProduct
 		&models.Customer{},
 		&models.ScanLog{},
 		&models.Category{},

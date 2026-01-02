@@ -26,7 +26,8 @@ type CategoryAttribute struct {
 // ProductAttributeValue 产品属性值
 type ProductAttributeValue struct {
 	gorm.Model
-	ProductID   uint   `json:"product_id"`
-	AttributeID uint   `json:"attribute_id"`
-	Value       string `json:"value"`
+	ProductID   uint               `json:"product_id"`
+	AttributeID uint               `json:"attribute_id"`
+	Attribute   *CategoryAttribute `json:"attribute" gorm:"foreignKey:AttributeID"`
+	Value       string             `json:"value"`
 }

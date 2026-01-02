@@ -8,17 +8,17 @@ import (
 
 type Order struct {
 	gorm.Model
-	CustomerName string     `json:"customer_name"`
-	Phone        string     `json:"phone"`
-	Amount       float64    `json:"amount"`
-	Specs        string     `json:"specs"` // JSON string or comma-separated
-	Remark       string     `json:"remark"`
-	Status       string     `json:"status"`   // "Pending", "In Progress", "Completed", "Delivered"
-	Deadline     *time.Time `json:"deadline"` // Estimated Completion Date
-	OrderNo      string     `json:"order_no"`
-	QRCode       string     `json:"qr_code"`
-	Products     []Product  `gorm:"many2many:order_products;" json:"products"`
-	Processes    []Process  `json:"processes"`
+	CustomerName  string         `json:"customer_name"`
+	Phone         string         `json:"phone"`
+	Amount        float64        `json:"amount"`
+	Specs         string         `json:"specs"` // JSON string or comma-separated
+	Remark        string         `json:"remark"`
+	Status        string         `json:"status"`   // "Pending", "In Progress", "Completed", "Delivered"
+	Deadline      *time.Time     `json:"deadline"` // Estimated Completion Date
+	OrderNo       string         `json:"order_no"`
+	QRCode        string         `json:"qr_code"`
+	OrderProducts []OrderProduct `json:"order_products" gorm:"foreignKey:OrderID"`
+	Processes     []Process      `json:"processes"`
 }
 
 type Process struct {

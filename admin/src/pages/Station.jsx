@@ -335,9 +335,25 @@ const Station = () => {
                                         {new Date(log.ID ? log.CreatedAt : Date.now()).toLocaleTimeString()}
                                     </span>
                                 </div>
-                                <div className="text-sm text-gray-600 pl-3.5 border-l-2 border-gray-100 ml-0.5">
-                                    {log.message}
-                                    {log.order_id && <span className="ml-2 text-blue-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">查看 &rarr;</span>}
+                                <div className="pl-3.5 border-l-2 border-gray-100 ml-0.5 mt-2">
+                                    {log.order_no ? (
+                                        <>
+                                            <div className="font-bold text-gray-800 font-mono text-sm mb-1">
+                                                订单 {log.order_no}
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                                <span className="font-medium text-black">{log.customer_name}</span> 的 <span className="font-medium text-black">{log.product_names}</span> 订单
+                                                <span className="ml-2 text-gray-400 text-xs">
+                                                    {log.message.includes('状态更新为') ? '状态更新为' + log.message.split('状态更新为')[1] : ''}
+                                                </span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="text-sm text-gray-600">
+                                            {log.message}
+                                        </div>
+                                    )}
+                                    {log.order_id && <span className="ml-2 text-blue-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">查看详情 &rarr;</span>}
                                 </div>
                             </div>
                         ))}
