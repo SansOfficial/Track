@@ -14,6 +14,8 @@ function ProductManager() {
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
 
+    const [dynamicAttrs, setDynamicAttrs] = useState({});
+
     // 获取分类列表
     const fetchCategories = () => {
         fetchWithAuth(`${API_BASE_URL}/categories`)
@@ -56,8 +58,17 @@ function ProductManager() {
     const openModal = (product = null) => {
         if (product) {
             setNewProduct(product);
+            // 解析现有属性值
+            const attrs = {};
+            if (product.attribute_values) {
+                product.attribute_values.forEach(av => {
+                    attrs[av.attribute_id] = av.value;
+                });
+            }
+            setDynamicAttrs(attrs);
         } else {
             setNewProduct({ name: '', code: '', price: 0, image: '', category_id: categories[0]?.ID || 0 });
+            setDynamicAttrs({});
         }
         setIsModalOpen(true);
     };
@@ -65,6 +76,7 @@ function ProductManager() {
     const closeModal = () => {
         setIsModalOpen(false);
         setNewProduct({ name: '', code: '', price: 0, image: '', category_id: 0 });
+        setDynamicAttrs({});
     };
 
     const handleSubmit = (e) => {
@@ -74,10 +86,20 @@ function ProductManager() {
             : `${API_BASE_URL}/products`;
         const method = newProduct.ID ? 'PUT' : 'POST';
 
+        // 转换动态属性为后端格式
+        const attribute_values = Object.keys(dynamicAttrs).map(attrId => ({
+            attribute_id: parseInt(attrId),
+            value: dynamicAttrs[attrId]
+        }));
+
         fetchWithAuth(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...newProduct, price: parseFloat(newProduct.price) })
+            body: JSON.stringify({
+                ...newProduct,
+                price: parseFloat(newProduct.price),
+                attribute_values: attribute_values
+            })
         })
             .then(async res => {
                 const data = await res.json();
@@ -95,6 +117,65 @@ function ProductManager() {
                 console.error(err);
                 toast.error(err.message || '操作失败');
             });
+    };
+
+    // ... existing handleDelete and others ...
+
+    // Helper to render dynamic inputs
+    const renderDynamicAttributes = () => {
+        const selectedCat = categories.find(c => c.ID === newProduct.category_id);
+        if (!selectedCat || !selectedCat.attributes || selectedCat.attributes.length === 0) return null;
+
+        return (
+            <div className="bg-gray-50 p-4 rounded border border-gray-100 space-y-3">
+                <h4 className="text-xs font-bold text-gray-500 uppercase">
+                    {selectedCat.name} 专属属性
+                </h4>
+                {selectedCat.attributes.map(attr => (
+                    <div key={attr.ID}>
+                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                            {attr.name} {attr.required && <span className="text-red-500">*</span>}
+                        </label>
+
+                        {attr.type === 'textarea' ? (
+                            <textarea
+                                value={dynamicAttrs[attr.ID] || ''}
+                                onChange={e => setDynamicAttrs({ ...dynamicAttrs, [attr.ID]: e.target.value })}
+                                required={attr.required}
+                                className="w-full p-2 border border-gray-300 rounded text-sm min-h-[60px]"
+                            />
+                        ) : attr.type === 'select' ? (
+                            <select
+                                value={dynamicAttrs[attr.ID] || ''}
+                                onChange={e => setDynamicAttrs({ ...dynamicAttrs, [attr.ID]: e.target.value })}
+                                required={attr.required}
+                                className="w-full p-2 border border-gray-300 rounded text-sm bg-white"
+                            >
+                                <option value="">请选择</option>
+                                {(() => {
+                                    try {
+                                        const opts = JSON.parse(attr.options || '[]');
+                                        return opts.map((opt, idx) => (
+                                            <option key={idx} value={opt}>{opt}</option>
+                                        ));
+                                    } catch (e) {
+                                        return <option value="">选项配置错误</option>;
+                                    }
+                                })()}
+                            </select>
+                        ) : (
+                            <input
+                                type={attr.type === 'number' ? 'number' : 'text'}
+                                value={dynamicAttrs[attr.ID] || ''}
+                                onChange={e => setDynamicAttrs({ ...dynamicAttrs, [attr.ID]: e.target.value })}
+                                required={attr.required}
+                                className="w-full p-2 border border-gray-300 rounded text-sm"
+                            />
+                        )}
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     const handleDelete = async (id) => {
@@ -311,6 +392,9 @@ function ProductManager() {
                                     ))}
                                 </select>
                             </div>
+
+                            {/* 动态属性字段 */}
+                            {renderDynamicAttributes()}
 
                             <div>
                                 <label className="block text-gray-700 text-sm font-bold mb-2">产品名称</label>
