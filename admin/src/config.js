@@ -1,8 +1,6 @@
 // API Base URL configuration
-// In production (built version), use relative path so it works with the deployed backend
-// In development, use localhost:8080 for local dev server
-const API_BASE_URL = import.meta.env.MODE === 'production'
-    ? '/api'  // Relative path for production
-    : 'http://localhost:8080/api';  // Absolute path for development
+// Use relative path for both production and development
+// In development, Vite proxy will forward /api requests to localhost:8080
+const API_BASE_URL = '/api';
 
 export default API_BASE_URL;

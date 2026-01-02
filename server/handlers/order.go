@@ -110,9 +110,8 @@ func CreateOrder(c *gin.Context) {
 		return
 	}
 
-	// 生成用于扫码的 URL
-	// 注意：使用 localhost 以适配本地工位机模式
-	order.QRCode = fmt.Sprintf("http://localhost:8080/scan?id=%d", order.ID)
+	// 生成用于扫码的标识符（不含域名，方便跨网络测试）
+	order.QRCode = fmt.Sprintf("ORDER-%d", order.ID)
 	database.DB.Save(&order)
 
 	c.JSON(http.StatusOK, order)
@@ -183,6 +182,7 @@ func GetOrder(c *gin.Context) {
 	if err := database.DB.
 		Preload("OrderProducts").
 		Preload("OrderProducts.Product").
+		Preload("OrderProducts.Product.Category").
 		Preload("OrderProducts.Product.AttributeValues.Attribute").
 		First(&order, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "订单不存在"})

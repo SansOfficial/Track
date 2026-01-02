@@ -32,6 +32,14 @@ func Connect() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// 修复 order_products 表主键冲突问题（如果表存在但没有 id 列）
+	if DB.Migrator().HasTable("order_products") {
+		if !DB.Migrator().HasColumn(&models.OrderProduct{}, "id") {
+			// 表存在但没有 id 列，可能有旧的联合主键，需要先删除
+			DB.Exec("ALTER TABLE order_products DROP PRIMARY KEY")
+		}
+	}
+
 	err = DB.AutoMigrate(
 		&models.User{},
 		&models.Worker{},

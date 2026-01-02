@@ -186,11 +186,18 @@ const Station = () => {
                                 <div className="font-medium">{order.customer_name} <span className="text-gray-400 font-mono ml-1">{order.phone}</span></div>
                             </div>
                             <div>
-                                <div className="text-gray-500 text-xs mb-1">产品 ({order.products?.length || 0})</div>
-                                <div className="max-h-24 overflow-y-auto bg-gray-50 p-2 rounded">
-                                    {order.products?.map((p, i) => (
-                                        <div key={i} className="flex justify-between text-xs mb-1">
-                                            <span>{p.name}</span>
+                                <div className="text-gray-500 text-xs mb-1">产品 ({order.order_products?.length || 0})</div>
+                                <div className="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded space-y-1.5">
+                                    {order.order_products?.map((op, i) => (
+                                        <div key={i} className="flex justify-between items-center text-xs">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="font-medium text-gray-800">{op.product?.name}</span>
+                                                <span className="text-blue-600">×{op.quantity}</span>
+                                                {op.product?.category?.name && (
+                                                    <span className="text-[10px] text-gray-400">[{op.product.category.name}]</span>
+                                                )}
+                                            </div>
+                                            <span className="text-gray-500 font-mono">¥{op.total_price?.toFixed(2)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -311,52 +318,89 @@ const Station = () => {
 
                 {/* Center Column: Work Logs */}
                 <div className="col-span-5 bg-white rounded flex flex-col shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <h2 className="text-lg font-bold text-black border-l-4 border-green-500 pl-3">工序记录</h2>
                         <div className="flex items-center">
                             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></span>
                             <span className="text-xs text-gray-400">Live Activity</span>
                         </div>
                     </div>
+                    {/* Table Header */}
+                    <div className="grid grid-cols-12 gap-2 px-3 py-2 bg-gray-50/50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        <div className="col-span-1">时间</div>
+                        <div className="col-span-2">工人</div>
+                        <div className="col-span-2">订单</div>
+                        <div className="col-span-4">产品</div>
+                        <div className="col-span-3 text-center">状态变更</div>
+                    </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                         {(stats.recent_logs || []).map((log, idx) => (
                             <div
                                 key={log.ID || idx}
-                                className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-all ${log.order_id ? 'cursor-pointer group' : ''}`}
+                                className={`grid grid-cols-12 gap-2 px-3 py-2.5 border-b border-gray-50 hover:bg-blue-50/50 transition-all items-center ${log.order_id ? 'cursor-pointer' : ''}`}
                                 onClick={(e) => log.order_id && handleOrderClick(e, log.order_id)}
                             >
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="flex items-center">
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-2 ${log.is_success ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                                        <span className="font-bold text-gray-900 mr-2">{log.worker_name}</span>
-                                        <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{log.station}</span>
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-mono">
-                                        {new Date(log.ID ? log.CreatedAt : Date.now()).toLocaleTimeString()}
-                                    </span>
+                                {/* 时间 */}
+                                <div className="col-span-1 text-xs text-gray-400 font-mono">
+                                    {new Date(log.ID ? log.CreatedAt : Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
-                                <div className="pl-3.5 border-l-2 border-gray-100 ml-0.5 mt-2">
+                                {/* 工人 */}
+                                <div className="col-span-2 flex items-center gap-1.5 min-w-0">
+                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${log.is_success ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                    <span className="font-semibold text-gray-900 text-sm truncate">{log.worker_name}</span>
+                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1 py-0.5 rounded flex-shrink-0">{log.station}</span>
+                                </div>
+                                {/* 订单 */}
+                                <div className="col-span-2 min-w-0">
                                     {log.order_no ? (
-                                        <>
-                                            <div className="font-bold text-gray-800 font-mono text-sm mb-1">
-                                                订单 {log.order_no}
-                                            </div>
-                                            <div className="text-sm text-gray-600">
-                                                <span className="font-medium text-black">{log.customer_name}</span> 的 <span className="font-medium text-black">{log.product_names}</span> 订单
-                                                <span className="ml-2 text-gray-400 text-xs">
-                                                    {log.message.includes('状态更新为') ? '状态更新为' + log.message.split('状态更新为')[1] : ''}
-                                                </span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="text-sm text-gray-600">
-                                            {log.message}
+                                        <div className="flex flex-col">
+                                            <span className="text-xs font-mono text-gray-600 truncate">{log.customer_name}</span>
                                         </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">-</span>
                                     )}
-                                    {log.order_id && <span className="ml-2 text-blue-500 text-xs opacity-0 group-hover:opacity-100 transition-opacity">查看详情 &rarr;</span>}
+                                </div>
+                                {/* 产品 - 显示名称×数量[类别] */}
+                                <div className="col-span-4 min-w-0">
+                                    {log.product_names ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {log.product_names.split(', ').map((item, i) => {
+                                                // 解析格式: "产品名×数量[类别]"
+                                                const match = item.match(/^(.+?)×(\d+)(?:\[(.+?)\])?$/);
+                                                if (match) {
+                                                    const [, name, qty, category] = match;
+                                                    return (
+                                                        <span key={i} className="inline-flex items-center gap-0.5 text-xs">
+                                                            <span className="text-gray-700">{name}</span>
+                                                            <span className="text-blue-600 font-medium">×{qty}</span>
+                                                            {category && <span className="text-gray-400 text-[10px]">[{category}]</span>}
+                                                        </span>
+                                                    );
+                                                }
+                                                return <span key={i} className="text-xs text-gray-600">{item}</span>;
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">-</span>
+                                    )}
+                                </div>
+                                {/* 状态变更 */}
+                                <div className="col-span-3 flex items-center justify-center">
+                                    {log.message.includes('状态更新为') ? (
+                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">
+                                            → {log.message.split('状态更新为')[1]?.trim()}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-500 truncate max-w-full text-center" title={log.message}>
+                                            {log.message.length > 25 ? log.message.substring(0, 25) + '...' : log.message}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         ))}
+                        {(stats.recent_logs || []).length === 0 && (
+                            <div className="p-10 text-center text-gray-400 text-sm">暂无工序记录</div>
+                        )}
                     </div>
                     {/* Overlay for Last Action Feedback */}
                     {lastScanStatus && (

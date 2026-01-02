@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 	"trace-server/database"
@@ -200,7 +201,7 @@ func GetStationStats(c *gin.Context) {
 	orderMap := make(map[uint]models.Order)
 	if len(orderIDs) > 0 {
 		var orders []models.Order
-		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Where("id IN ?", orderIDs).Find(&orders)
+		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Preload("OrderProducts.Product.Category").Where("id IN ?", orderIDs).Find(&orders)
 		for _, o := range orders {
 			orderMap[o.ID] = o
 		}
@@ -212,14 +213,17 @@ func GetStationStats(c *gin.Context) {
 			if o, ok := orderMap[log.OrderID]; ok {
 				rl.OrderNo = o.OrderNo
 				rl.CustomerName = o.CustomerName
-				// Join product names
+				// Join product names with quantity and category
 				var pNames string
 				for i, op := range o.OrderProducts {
 					if i > 0 {
 						pNames += ", "
 					}
 					if op.Product != nil {
-						pNames += op.Product.Name
+						pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
+						if op.Product.Category != nil {
+							pNames += fmt.Sprintf("[%s]", op.Product.Category.Name)
+						}
 					}
 				}
 				rl.ProductNames = pNames
