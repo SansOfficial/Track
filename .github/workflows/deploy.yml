@@ -94,8 +94,11 @@ jobs:
             cp $DEPLOY_DIR/trace-server-linux $DEPLOY_DIR/trace-server-linux.bak 2>/dev/null || true
         fi
         
-        # ========== 阶段2: 部署新版本 ==========
-        echo "📦 Stage 2: Deploying new version..."
+        # ========== 阶段2: 停止服务并部署新版本 ==========
+        echo "📦 Stage 2: Stopping service and deploying new version..."
+        systemctl stop trace 2>/dev/null || true
+        sleep 1
+        
         rm -rf $DEPLOY_DIR/dist
         cp server/trace-server-linux $DEPLOY_DIR/
         cp -r server/dist $DEPLOY_DIR/
