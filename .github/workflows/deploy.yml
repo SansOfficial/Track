@@ -57,104 +57,57 @@ jobs:
         # 因为是在本机跑，其实可以直接 go build，但保留参数确保兼容性
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o trace-server-linux main.go
         
-    # 6. 安全部署：先验证新版本能启动，再切换
-    - name: Deploy Locally (Safe Rollback)
+    # 6. 安全部署：使用 systemd 管理服务
+    - name: Deploy with systemd
       run: |
-        echo "🚀 Starting safe deployment..."
+        echo "🚀 Starting deployment..."
         
         DEPLOY_DIR="${{ env.DEPLOY_PATH }}/server"
-        STAGING_DIR="${{ env.DEPLOY_PATH }}/staging"
-        TEST_PORT=18080
         
         # 确保目录存在
         mkdir -p $DEPLOY_DIR
-        mkdir -p $STAGING_DIR
         
-        # ========== 阶段1: 准备新版本到 staging 目录 ==========
-        echo "📦 Stage 1: Preparing new version in staging..."
-        rm -rf $STAGING_DIR/*
-        cp server/trace-server-linux $STAGING_DIR/
-        cp -r server/dist $STAGING_DIR/
-        chmod +x $STAGING_DIR/trace-server-linux
-        
-        # ========== 阶段2: 测试新版本能否启动 ==========
-        echo "🧪 Stage 2: Testing new version on port $TEST_PORT..."
-        cd $STAGING_DIR
-        
-        # 启动测试实例（使用不同端口，不影响生产）
-        # 使用 setsid 创建新会话，防止被 Actions 结束时杀掉
-        PORT=$TEST_PORT setsid ./trace-server-linux > test.log 2>&1 &
-        TEST_PID=$!
-        
-        # 等待启动
-        sleep 3
-        
-        # 检查进程是否存活
-        if ! ps -p $TEST_PID > /dev/null 2>&1; then
-            echo "❌ New version failed to start! Keeping old version running."
-            echo "=== Test Log ==="
-            cat test.log
-            echo "================"
-            exit 1
-        fi
-        
-        # 健康检查：尝试访问 API
-        if ! curl -sf http://localhost:$TEST_PORT/api/health > /dev/null 2>&1; then
-            # 如果没有 health 接口，检查端口是否在监听
-            if ! ss -tlnp | grep -q ":$TEST_PORT"; then
-                echo "❌ New version is not responding! Keeping old version."
-                kill $TEST_PID 2>/dev/null || true
-                cat test.log
-                exit 1
-            fi
-        fi
-        
-        echo "✅ New version passed health check!"
-        
-        # 停止测试实例
-        kill $TEST_PID 2>/dev/null || true
-        sleep 1
-        
-        # ========== 阶段3: 正式切换 ==========
-        echo "🔄 Stage 3: Switching to new version..."
-        
-        # 停止旧的生产服务
-        killall trace-server-linux 2>/dev/null || true
-        sleep 1
-        
-        # 备份旧版本（可选）
+        # ========== 阶段1: 备份旧版本 ==========
+        echo "📦 Stage 1: Backup old version..."
         if [ -f "$DEPLOY_DIR/trace-server-linux" ]; then
             cp $DEPLOY_DIR/trace-server-linux $DEPLOY_DIR/trace-server-linux.bak 2>/dev/null || true
         fi
         
-        # 替换为新版本
+        # ========== 阶段2: 部署新版本 ==========
+        echo "📦 Stage 2: Deploying new version..."
         rm -rf $DEPLOY_DIR/dist
-        cp $STAGING_DIR/trace-server-linux $DEPLOY_DIR/
-        cp -r $STAGING_DIR/dist $DEPLOY_DIR/
+        cp server/trace-server-linux $DEPLOY_DIR/
+        cp -r server/dist $DEPLOY_DIR/
+        chmod +x $DEPLOY_DIR/trace-server-linux
         
-        # 启动新版本（使用 setsid 确保进程独立运行）
-        cd $DEPLOY_DIR
-        setsid ./trace-server-linux > server.log 2>&1 &
-        PROD_PID=$!
+        # ========== 阶段3: 使用 systemd 重启服务 ==========
+        echo "🔄 Stage 3: Restarting service via systemd..."
+        systemctl restart trace
         
-        sleep 2
+        # 等待服务启动
+        sleep 3
         
-        if ps -p $PROD_PID > /dev/null 2>&1; then
-            echo "✅ Deployment successful! Server running (PID $PROD_PID)"
+        # 检查服务状态
+        if systemctl is-active --quiet trace; then
+            echo "✅ Deployment successful! Service is running."
+            systemctl status trace --no-pager
             exit 0
         else
-            echo "❌ Production start failed! Attempting rollback..."
+            echo "❌ Service failed to start! Attempting rollback..."
             
-            # 尝试回滚到旧版本
+            # 回滚到旧版本
             if [ -f "$DEPLOY_DIR/trace-server-linux.bak" ]; then
                 mv $DEPLOY_DIR/trace-server-linux.bak $DEPLOY_DIR/trace-server-linux
-                setsid ./trace-server-linux > server.log 2>&1 &
+                systemctl restart trace
                 sleep 2
-                if ps aux | grep -v grep | grep trace-server-linux > /dev/null; then
+                if systemctl is-active --quiet trace; then
                     echo "⚠️ Rolled back to previous version"
+                else
+                    echo "❌ Rollback also failed!"
                 fi
             fi
             
-            cat server.log
+            # 显示错误日志
+            journalctl -u trace -n 50 --no-pager
             exit 1
         fi
