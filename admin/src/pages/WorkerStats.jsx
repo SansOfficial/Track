@@ -227,37 +227,57 @@ function WorkerStats() {
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">时间</th>
-                                <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">订单ID</th>
+                                <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">订单</th>
+                                <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">客户</th>
+                                <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">产品</th>
                                 <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">工位</th>
-                                <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">状态</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50 text-sm">
                             {stats.recent_logs && stats.recent_logs.length > 0 ? (
                                 stats.recent_logs.map((log) => (
                                     <tr key={log.ID} className="hover:bg-gray-50">
-                                        <td className="p-4 text-gray-600">
+                                        <td className="p-4 text-gray-500 text-xs">
                                             {new Date(log.CreatedAt).toLocaleString()}
                                         </td>
-                                        <td className="p-4 font-mono text-gray-900">
-                                            {log.order_id}
+                                        <td className="p-4">
+                                            <span className="font-mono text-xs text-gray-600">{log.order_no || '-'}</span>
+                                        </td>
+                                        <td className="p-4 font-medium text-gray-900">
+                                            {log.customer_name || '-'}
+                                        </td>
+                                        <td className="p-4">
+                                            {log.product_names ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    {log.product_names.split(', ').map((item, i) => {
+                                                        const match = item.match(/^(.+?)×(\d+)(?:\[(.+?)\])?$/);
+                                                        if (match) {
+                                                            const [, name, qty, category] = match;
+                                                            return (
+                                                                <div key={i} className="flex items-center gap-1 text-xs">
+                                                                    <span className="text-gray-800">{name}</span>
+                                                                    <span className="bg-blue-100 text-blue-700 px-1 rounded text-[10px] font-bold">×{qty}</span>
+                                                                    {category && <span className="text-gray-400 text-[10px]">{category}</span>}
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return <span key={i} className="text-xs text-gray-600">{item}</span>;
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
                                         </td>
                                         <td className="p-4">
                                             <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
                                                 {log.station}
                                             </span>
                                         </td>
-                                        <td className="p-4">
-                                            <span className="text-green-600 flex items-center">
-                                                <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
-                                                完成
-                                            </span>
-                                        </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="4" className="p-8 text-center text-gray-400">
+                                    <td colSpan="5" className="p-8 text-center text-gray-400">
                                         该时段无详细记录
                                     </td>
                                 </tr>

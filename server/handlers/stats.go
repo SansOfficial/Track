@@ -332,15 +332,64 @@ func GetWorkerStats(c *gin.Context) {
 	}
 	stationQuery.Scan(&stationWork)
 
-	// 4. 工人详细日志 (最近50条)
-	var recentLogs []models.Process
+	// 4. 工人详细日志 (最近50条，包含订单详情)
+	var processLogs []models.Process
 	logQuery := database.DB.Where("created_at >= ? AND created_at < ?", start, end).
 		Order("created_at desc").
 		Limit(50)
 	if workerID != "" {
 		logQuery = logQuery.Where("worker_id = ?", workerID)
 	}
-	logQuery.Find(&recentLogs)
+	logQuery.Find(&processLogs)
+
+	// 获取相关订单的详细信息
+	var orderIDs []uint
+	for _, p := range processLogs {
+		if p.OrderID > 0 {
+			orderIDs = append(orderIDs, p.OrderID)
+		}
+	}
+
+	orderMap := make(map[uint]models.Order)
+	if len(orderIDs) > 0 {
+		var orders []models.Order
+		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Preload("OrderProducts.Product.Category").
+			Where("id IN ?", orderIDs).Find(&orders)
+		for _, o := range orders {
+			orderMap[o.ID] = o
+		}
+	}
+
+	// 构建包含订单详情的日志
+	type ProcessLog struct {
+		models.Process
+		OrderNo      string `json:"order_no"`
+		CustomerName string `json:"customer_name"`
+		ProductNames string `json:"product_names"`
+	}
+	recentLogs := make([]ProcessLog, 0)
+	for _, p := range processLogs {
+		pl := ProcessLog{Process: p}
+		if o, ok := orderMap[p.OrderID]; ok {
+			pl.OrderNo = o.OrderNo
+			pl.CustomerName = o.CustomerName
+			// 产品信息
+			var pNames string
+			for i, op := range o.OrderProducts {
+				if i > 0 {
+					pNames += ", "
+				}
+				if op.Product != nil {
+					pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
+					if op.Product.Category != nil {
+						pNames += fmt.Sprintf("[%s]", op.Product.Category.Name)
+					}
+				}
+			}
+			pl.ProductNames = pNames
+		}
+		recentLogs = append(recentLogs, pl)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"worker_totals": workerTotals,
