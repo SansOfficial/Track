@@ -360,24 +360,25 @@ const Station = () => {
                                         <span className="text-xs text-gray-400">-</span>
                                     )}
                                 </div>
-                                {/* 产品 - 显示名称×数量[类别] */}
+                                {/* 产品 - 每个产品单独一行显示 */}
                                 <div className="col-span-4 min-w-0">
                                     {log.product_names ? (
-                                        <div className="flex flex-wrap gap-1">
+                                        <div className="flex flex-col gap-1">
                                             {log.product_names.split(', ').map((item, i) => {
-                                                // 解析格式: "产品名×数量[类别]"
-                                                const match = item.match(/^(.+?)×(\d+)(?:\[(.+?)\])?$/);
+                                                // 解析格式: "产品名×数量[类别](长×宽×高)"
+                                                const match = item.match(/^(.+?)×(\d+)(?:\[(.+?)\])?(?:\((.+?)\))?$/);
                                                 if (match) {
-                                                    const [, name, qty, category] = match;
+                                                    const [, name, qty, category, dims] = match;
                                                     return (
-                                                        <span key={i} className="inline-flex items-center gap-0.5 text-xs">
-                                                            <span className="text-gray-700">{name}</span>
-                                                            <span className="text-blue-600 font-medium">×{qty}</span>
-                                                            {category && <span className="text-gray-400 text-[10px]">[{category}]</span>}
-                                                        </span>
+                                                        <div key={i} className="flex items-center text-xs bg-gray-50 rounded px-2 py-1">
+                                                            <span className="text-gray-800 font-medium">{name}</span>
+                                                            <span className="bg-blue-100 text-blue-700 px-1 py-0.5 rounded text-[10px] font-bold ml-2">×{qty}</span>
+                                                            {category && <span className="text-gray-400 text-[10px] ml-2">{category}</span>}
+                                                            {dims && <span className="text-orange-600 text-[10px] ml-auto font-mono">{dims}</span>}
+                                                        </div>
                                                     );
                                                 }
-                                                return <span key={i} className="text-xs text-gray-600">{item}</span>;
+                                                return <div key={i} className="text-xs text-gray-600">{item}</div>;
                                             })}
                                         </div>
                                     ) : (

@@ -213,7 +213,7 @@ func GetStationStats(c *gin.Context) {
 			if o, ok := orderMap[log.OrderID]; ok {
 				rl.OrderNo = o.OrderNo
 				rl.CustomerName = o.CustomerName
-				// Join product names with quantity and category
+				// Join product names with quantity, category and dimensions
 				var pNames string
 				for i, op := range o.OrderProducts {
 					if i > 0 {
@@ -223,6 +223,10 @@ func GetStationStats(c *gin.Context) {
 						pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
 						if op.Product.Category != nil {
 							pNames += fmt.Sprintf("[%s]", op.Product.Category.Name)
+						}
+						// 添加尺寸信息（如果有）
+						if op.Length > 0 || op.Width > 0 || op.Height > 0 {
+							pNames += fmt.Sprintf("(%.0f×%.0f×%.0f)", op.Length, op.Width, op.Height)
 						}
 					}
 				}

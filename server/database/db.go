@@ -32,11 +32,17 @@ func Connect() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// 修复 order_products 表主键冲突问题（如果表存在但没有 id 列）
+	// 修复 order_products 表结构问题
+	// 如果表存在但没有正确的 id 主键结构，直接删除重建
 	if DB.Migrator().HasTable("order_products") {
-		if !DB.Migrator().HasColumn(&models.OrderProduct{}, "id") {
-			// 表存在但没有 id 列，可能有旧的联合主键，需要先删除
-			DB.Exec("ALTER TABLE order_products DROP PRIMARY KEY")
+		var count int64
+		DB.Raw("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'order_products' AND column_name = 'id' AND column_key = 'PRI'").Scan(&count)
+		if count == 0 {
+			// 表存在但 id 不是主键，删除表让 GORM 重建
+			log.Println("order_products table has incorrect structure, dropping and recreating...")
+			DB.Exec("SET FOREIGN_KEY_CHECKS = 0")
+			DB.Exec("DROP TABLE IF EXISTS order_products")
+			DB.Exec("SET FOREIGN_KEY_CHECKS = 1")
 		}
 	}
 
