@@ -82,7 +82,8 @@ jobs:
         cd $STAGING_DIR
         
         # 启动测试实例（使用不同端口，不影响生产）
-        PORT=$TEST_PORT nohup ./trace-server-linux > test.log 2>&1 &
+        # 使用 setsid 创建新会话，防止被 Actions 结束时杀掉
+        PORT=$TEST_PORT setsid ./trace-server-linux > test.log 2>&1 &
         TEST_PID=$!
         
         # 等待启动
@@ -131,9 +132,9 @@ jobs:
         cp $STAGING_DIR/trace-server-linux $DEPLOY_DIR/
         cp -r $STAGING_DIR/dist $DEPLOY_DIR/
         
-        # 启动新版本
+        # 启动新版本（使用 setsid 确保进程独立运行）
         cd $DEPLOY_DIR
-        nohup ./trace-server-linux > server.log 2>&1 &
+        setsid ./trace-server-linux > server.log 2>&1 &
         PROD_PID=$!
         
         sleep 2
@@ -147,7 +148,7 @@ jobs:
             # 尝试回滚到旧版本
             if [ -f "$DEPLOY_DIR/trace-server-linux.bak" ]; then
                 mv $DEPLOY_DIR/trace-server-linux.bak $DEPLOY_DIR/trace-server-linux
-                nohup ./trace-server-linux > server.log 2>&1 &
+                setsid ./trace-server-linux > server.log 2>&1 &
                 sleep 2
                 if ps aux | grep -v grep | grep trace-server-linux > /dev/null; then
                     echo "⚠️ Rolled back to previous version"
