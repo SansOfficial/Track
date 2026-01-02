@@ -13,8 +13,8 @@ function CreateOrder() {
     const [formData, setFormData] = useState({
         customer_name: '',
         phone: '',
-        address: '', // 送货地址
-        deadline_str: new Date().toISOString().split('T')[0], // Default to today
+        address: '',
+        deadline_str: new Date().toISOString().split('T')[0],
         specs: '',
         remark: ''
     });
@@ -27,30 +27,46 @@ function CreateOrder() {
         width: '',
         height: '',
         quantity: 1,
-        unit: '块', // 默认单位
+        unit: '块',
         unit_price: ''
     });
 
     const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [customers, setCustomers] = useState([]);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
+    // 编辑模式
+    const [editingIndex, setEditingIndex] = useState(-1);
+
     const navigate = useNavigate();
 
     useEffect(() => {
+        // Fetch categories
+        fetchWithAuth(`${API_BASE_URL}/categories`)
+            .then(res => res.json())
+            .then(data => setCategories(Array.isArray(data) ? data : []))
+            .catch(err => console.error(err));
+
         // Fetch products
         fetchWithAuth(`${API_BASE_URL}/products`)
             .then(res => res.json())
-            .then(data => setProducts(data))
+            .then(data => setProducts(Array.isArray(data) ? data : []))
             .catch(err => console.error(err));
 
         // Fetch customers
         fetchWithAuth(`${API_BASE_URL}/customers`)
             .then(res => res.json())
-            .then(data => setCustomers(data))
+            .then(data => setCustomers(data || []))
             .catch(err => console.error(err));
     }, []);
+
+    // 根据类别筛选产品
+    const filteredProducts = selectedCategory
+        ? products.filter(p => p.category_id === parseInt(selectedCategory))
+        : products;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -76,7 +92,7 @@ function CreateOrder() {
             ...formData,
             customer_name: customer.name,
             phone: customer.phone,
-            address: customer.address || '' // 自动带出客户地址
+            address: customer.address || ''
         });
         setShowSuggestions(false);
     };
@@ -110,7 +126,50 @@ function CreateOrder() {
             total_price: parseFloat(currentItem.unit_price) * parseInt(currentItem.quantity)
         };
 
-        setOrderItems([...orderItems, newItem]);
+        if (editingIndex >= 0) {
+            // 更新已有项
+            const newItems = [...orderItems];
+            newItems[editingIndex] = newItem;
+            setOrderItems(newItems);
+            setEditingIndex(-1);
+        } else {
+            // 添加新项
+            setOrderItems([...orderItems, newItem]);
+        }
+
+        // 重置表单
+        setCurrentItem({
+            product_id: '',
+            length: '',
+            width: '',
+            height: '',
+            quantity: 1,
+            unit: '块',
+            unit_price: ''
+        });
+    };
+
+    const handleEditItem = (index) => {
+        const item = orderItems[index];
+        // 找到产品所属的类别
+        const product = products.find(p => p.ID === item.product_id);
+        if (product) {
+            setSelectedCategory(product.category_id?.toString() || '');
+        }
+        setCurrentItem({
+            product_id: item.product_id.toString(),
+            length: item.length.toString(),
+            width: item.width.toString(),
+            height: item.height.toString(),
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unit_price.toString()
+        });
+        setEditingIndex(index);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingIndex(-1);
         setCurrentItem({
             product_id: '',
             length: '',
@@ -126,6 +185,11 @@ function CreateOrder() {
         const newItems = [...orderItems];
         newItems.splice(index, 1);
         setOrderItems(newItems);
+        if (editingIndex === index) {
+            handleCancelEdit();
+        } else if (editingIndex > index) {
+            setEditingIndex(editingIndex - 1);
+        }
     };
 
     const totalAmount = orderItems.reduce((sum, item) => sum + item.total_price, 0);
@@ -138,11 +202,10 @@ function CreateOrder() {
             return;
         }
 
-        // Construct payload
         const payload = {
             ...formData,
             amount: totalAmount,
-            items: orderItems.map(({ product_name, total_price, ...rest }) => rest) // Exclude display fields
+            items: orderItems.map(({ product_name, total_price, ...rest }) => rest)
         };
 
         fetchWithAuth(`${API_BASE_URL}/orders`, {
@@ -160,7 +223,6 @@ function CreateOrder() {
             .then(async (data) => {
                 toast.success('订单创建成功');
 
-                // Construct Order object for printing
                 const orderForPrint = {
                     ...data,
                     order_products: orderItems.map(item => ({
@@ -184,7 +246,7 @@ function CreateOrder() {
 
     return (
         <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold mb-8">新建订单 (详细模式)</h2>
+            <h2 className="text-3xl font-bold mb-8">新建订单</h2>
             <form onSubmit={handleSubmit} className="space-y-6">
 
                 {/* Customer Info */}
@@ -244,8 +306,29 @@ function CreateOrder() {
                     </h3>
 
                     {/* Add Item Form */}
-                    <div className="bg-gray-50 p-4 rounded border border-gray-200 mb-6">
+                    <div className={`p-4 rounded border mb-6 ${editingIndex >= 0 ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-200'}`}>
+                        {editingIndex >= 0 && (
+                            <div className="text-sm text-yellow-700 mb-3 font-medium">
+                                正在编辑第 {editingIndex + 1} 项
+                            </div>
+                        )}
                         <div className="grid grid-cols-12 gap-3 items-end">
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">选择类别</label>
+                                <select
+                                    className="w-full p-2 border rounded text-sm"
+                                    value={selectedCategory}
+                                    onChange={e => {
+                                        setSelectedCategory(e.target.value);
+                                        setCurrentItem({ ...currentItem, product_id: '' });
+                                    }}
+                                >
+                                    <option value="">全部类别</option>
+                                    {categories.map(cat => (
+                                        <option key={cat.ID} value={cat.ID}>{cat.icon} {cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">选择产品</label>
                                 <select
@@ -254,21 +337,21 @@ function CreateOrder() {
                                     onChange={e => setCurrentItem({ ...currentItem, product_id: e.target.value })}
                                 >
                                     <option value="">-- 选择 --</option>
-                                    {products.map(p => (
+                                    {filteredProducts.map(p => (
                                         <option key={p.ID} value={p.ID}>{p.name}</option>
                                     ))}
                                 </select>
                             </div>
-                            <div className="col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">长 (cm)</label>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">长</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.length} onChange={e => setCurrentItem({ ...currentItem, length: e.target.value })} />
                             </div>
-                            <div className="col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">宽 (cm)</label>
+                            <div className="col-span-1">
+                                <label className="block text-xs font-bold text-gray-500 mb-1">宽</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.width} onChange={e => setCurrentItem({ ...currentItem, width: e.target.value })} />
                             </div>
                             <div className="col-span-1">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">厚 (cm)</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">厚</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.height} onChange={e => setCurrentItem({ ...currentItem, height: e.target.value })} />
                             </div>
                             <div className="col-span-1">
@@ -287,12 +370,19 @@ function CreateOrder() {
                                 </select>
                             </div>
                             <div className="col-span-1">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">单价 (¥)</label>
-                                <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0.00" value={currentItem.unit_price} onChange={e => setCurrentItem({ ...currentItem, unit_price: e.target.value })} />
+                                <label className="block text-xs font-bold text-gray-500 mb-1">单价</label>
+                                <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.unit_price} onChange={e => setCurrentItem({ ...currentItem, unit_price: e.target.value })} />
                             </div>
                         </div>
-                        <div className="mt-4 flex justify-end">
-                            <button type="button" onClick={handleAddItem} className="bg-black text-white px-4 py-2 rounded text-sm hover:bg-gray-800">+ 添加明细</button>
+                        <div className="mt-3 flex justify-end space-x-2">
+                            {editingIndex >= 0 && (
+                                <button type="button" onClick={handleCancelEdit} className="px-4 py-2 text-gray-500 hover:text-black text-sm border border-gray-300 rounded">
+                                    取消编辑
+                                </button>
+                            )}
+                            <button type="button" onClick={handleAddItem} className="bg-black text-white px-6 py-2 rounded text-sm hover:bg-gray-800">
+                                {editingIndex >= 0 ? '保存修改' : '+ 添加明细'}
+                            </button>
                         </div>
                     </div>
 
@@ -313,7 +403,7 @@ function CreateOrder() {
                                 </thead>
                                 <tbody className="divide-y">
                                     {orderItems.map((item, idx) => (
-                                        <tr key={idx}>
+                                        <tr key={idx} className={editingIndex === idx ? 'bg-yellow-50' : ''}>
                                             <td className="p-3 font-medium">{item.product_name}</td>
                                             <td className="p-3 font-mono text-gray-600">
                                                 {item.length} × {item.width} × {item.height}
@@ -321,9 +411,24 @@ function CreateOrder() {
                                             <td className="p-3">{item.quantity}</td>
                                             <td className="p-3 text-gray-500">{item.unit}</td>
                                             <td className="p-3">¥{item.unit_price}</td>
-                                            <td className="p-3 font-bold">¥{item.total_price}</td>
-                                            <td className="p-3 text-right">
-                                                <button type="button" onClick={() => handleRemoveItem(idx)} className="text-gray-400 hover:text-red-700 transition-colors">
+                                            <td className="p-3 font-bold">¥{item.total_price?.toFixed(2)}</td>
+                                            <td className="p-3 text-right space-x-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditItem(idx)}
+                                                    className="text-gray-400 hover:text-black transition-colors p-1"
+                                                    title="编辑"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveItem(idx)}
+                                                    className="text-gray-400 hover:text-red-700 transition-colors p-1"
+                                                    title="删除"
+                                                >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                     </svg>
@@ -353,12 +458,12 @@ function CreateOrder() {
                     <h3 className="text-lg font-bold mb-4 border-l-4 border-black pl-3">其他信息</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-gray-700 font-bold mb-2">预计完成日期 (Deadline)</label>
+                            <label className="block text-gray-700 font-bold mb-2">预计完成日期</label>
                             <input type="date" name="deadline_str" value={formData.deadline_str} onChange={handleChange} className="w-full p-2 border rounded outline-none focus:border-black transition-colors" />
                         </div>
                         <div>
-                            <label className="block text-gray-700 font-bold mb-2">规格详情 / 备注</label>
-                            <textarea name="remark" value={formData.remark} onChange={handleChange} className="w-full p-2 border rounded h-24 outline-none focus:border-black transition-colors" placeholder="请输入具体规格要求或其他备注信息..."></textarea>
+                            <label className="block text-gray-700 font-bold mb-2">备注</label>
+                            <textarea name="remark" value={formData.remark} onChange={handleChange} className="w-full p-2 border rounded h-24 outline-none focus:border-black transition-colors" placeholder="请输入备注信息..."></textarea>
                         </div>
                     </div>
                 </div>

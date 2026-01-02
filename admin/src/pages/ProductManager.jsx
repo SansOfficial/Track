@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
 import { useUI } from '../context/UIContext';
-
 import { useAuth } from '../context/AuthContext';
 
 function ProductManager() {
@@ -15,6 +14,9 @@ function ProductManager() {
     const [categoryFilter, setCategoryFilter] = useState('');
 
     const [dynamicAttrs, setDynamicAttrs] = useState({});
+
+    // Batch Selection
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     // 获取分类列表
     const fetchCategories = () => {
@@ -37,7 +39,10 @@ function ProductManager() {
 
         fetchWithAuth(url)
             .then(res => res.json())
-            .then(data => setProducts(Array.isArray(data) ? data : []))
+            .then(data => {
+                setProducts(Array.isArray(data) ? data : []);
+                setSelectedIds(new Set());
+            })
             .catch(err => {
                 console.error(err);
                 setProducts([]);
@@ -55,10 +60,50 @@ function ProductManager() {
         return () => clearTimeout(timer);
     }, [searchQuery, categoryFilter]);
 
+    // Selection handlers
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(new Set(products.map(p => p.ID)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id, checked) => {
+        const newSet = new Set(selectedIds);
+        if (checked) {
+            newSet.add(id);
+        } else {
+            newSet.delete(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const isAllSelected = products.length > 0 && selectedIds.size === products.length;
+
+    // Batch delete
+    const handleBatchDelete = async () => {
+        if (selectedIds.size === 0) return;
+        const shouldDelete = await confirm(`确定要删除选中的 ${selectedIds.size} 个产品吗？`);
+        if (!shouldDelete) return;
+
+        let success = 0, fail = 0;
+        for (const id of selectedIds) {
+            try {
+                const res = await fetchWithAuth(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
+                if (res.ok) success++;
+                else fail++;
+            } catch {
+                fail++;
+            }
+        }
+        toast.success(`批量删除完成：成功 ${success}，失败 ${fail}`);
+        fetchProducts();
+    };
+
     const openModal = (product = null) => {
         if (product) {
             setNewProduct(product);
-            // 解析现有属性值
             const attrs = {};
             if (product.attribute_values) {
                 product.attribute_values.forEach(av => {
@@ -86,7 +131,6 @@ function ProductManager() {
             : `${API_BASE_URL}/products`;
         const method = newProduct.ID ? 'PUT' : 'POST';
 
-        // 转换动态属性为后端格式
         const attribute_values = Object.keys(dynamicAttrs).map(attrId => ({
             attribute_id: parseInt(attrId),
             value: dynamicAttrs[attrId]
@@ -119,9 +163,6 @@ function ProductManager() {
             });
     };
 
-    // ... existing handleDelete and others ...
-
-    // Helper to render dynamic inputs
     const renderDynamicAttributes = () => {
         const selectedCat = categories.find(c => c.ID === newProduct.category_id);
         if (!selectedCat || !selectedCat.attributes || selectedCat.attributes.length === 0) return null;
@@ -199,7 +240,6 @@ function ProductManager() {
         }
     };
 
-    // Base URL for Images (Remove /api from API_BASE_URL)
     const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
 
     const handleFileUpload = (e) => {
@@ -255,7 +295,7 @@ function ProductManager() {
             </div>
 
             {/* 分类筛选标签 */}
-            <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
+            <div className="flex space-x-2 mb-4 overflow-x-auto pb-2">
                 <button
                     onClick={() => setCategoryFilter('')}
                     className={`px-4 py-2 text-sm font-medium rounded-full transition-all ${categoryFilter === ''
@@ -279,10 +319,41 @@ function ProductManager() {
                 ))}
             </div>
 
+            {/* Batch Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-gray-50 border border-gray-200 p-3 mb-4 flex items-center justify-between">
+                    <span className="text-gray-700 text-sm font-medium">
+                        已选择 <span className="font-bold text-black">{selectedIds.size}</span> 个产品
+                    </span>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleBatchDelete}
+                            className="bg-white text-gray-600 px-4 py-1.5 text-sm border border-gray-300 hover:border-red-600 hover:text-red-600 transition-colors"
+                        >
+                            删除
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-gray-400 px-3 py-1.5 text-sm hover:text-black transition-colors"
+                        >
+                            取消
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th className="p-4 w-10">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                />
+                            </th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">图片</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">分类</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">名称</th>
@@ -293,7 +364,15 @@ function ProductManager() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {products.map(product => (
-                            <tr key={product.ID} className="hover:bg-gray-50 transition-colors">
+                            <tr key={product.ID} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(product.ID) ? 'bg-blue-50' : ''}`}>
+                                <td className="p-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(product.ID)}
+                                        onChange={(e) => handleSelectOne(product.ID, e.target.checked)}
+                                        className="w-4 h-4 rounded border-gray-300"
+                                    />
+                                </td>
                                 <td className="p-4">
                                     {product.image ? (
                                         <img
@@ -349,7 +428,7 @@ function ProductManager() {
                         ))}
                         {products.length === 0 && (
                             <tr>
-                                <td colSpan="6" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
+                                <td colSpan="7" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
                             </tr>
                         )}
                     </tbody>
@@ -405,7 +484,6 @@ function ProductManager() {
                                 </select>
                             </div>
 
-                            {/* 动态属性字段 */}
                             {renderDynamicAttributes()}
 
                             <div>

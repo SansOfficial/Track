@@ -13,6 +13,9 @@ function CustomerManager() {
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Batch Selection
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
     const fetchCustomers = () => {
         let url = `${API_BASE_URL}/customers?`;
         if (searchQuery) url += `q=${encodeURIComponent(searchQuery)}`;
@@ -21,6 +24,7 @@ function CustomerManager() {
             .then(res => res.json())
             .then(data => {
                 setCustomers(data || []);
+                setSelectedIds(new Set());
             })
             .catch(err => {
                 console.error(err);
@@ -32,6 +36,47 @@ function CustomerManager() {
         const timer = setTimeout(fetchCustomers, 300);
         return () => clearTimeout(timer);
     }, [searchQuery]);
+
+    // Selection handlers
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(new Set(customers.map(c => c.ID)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id, checked) => {
+        const newSet = new Set(selectedIds);
+        if (checked) {
+            newSet.add(id);
+        } else {
+            newSet.delete(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const isAllSelected = customers.length > 0 && selectedIds.size === customers.length;
+
+    // Batch delete
+    const handleBatchDelete = async () => {
+        if (selectedIds.size === 0) return;
+        const shouldDelete = await confirm(`确定要删除选中的 ${selectedIds.size} 个客户吗？`);
+        if (!shouldDelete) return;
+
+        let success = 0, fail = 0;
+        for (const id of selectedIds) {
+            try {
+                const res = await fetchWithAuth(`${API_BASE_URL}/customers/${id}`, { method: 'DELETE' });
+                if (res.ok) success++;
+                else fail++;
+            } catch {
+                fail++;
+            }
+        }
+        toast.success(`批量删除完成：成功 ${success}，失败 ${fail}`);
+        fetchCustomers();
+    };
 
     const openModal = (customer = null) => {
         if (customer) {
@@ -120,10 +165,41 @@ function CustomerManager() {
                 </div>
             </div>
 
+            {/* Batch Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-gray-50 border border-gray-200 p-3 mb-4 flex items-center justify-between">
+                    <span className="text-gray-700 text-sm font-medium">
+                        已选择 <span className="font-bold text-black">{selectedIds.size}</span> 个客户
+                    </span>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleBatchDelete}
+                            className="bg-white text-gray-600 px-4 py-1.5 text-sm border border-gray-300 hover:border-red-600 hover:text-red-600 transition-colors"
+                        >
+                            删除
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-gray-400 px-3 py-1.5 text-sm hover:text-black transition-colors"
+                        >
+                            取消
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th className="p-4 w-10">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                />
+                            </th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">姓名</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">电话</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">地址</th>
@@ -133,7 +209,15 @@ function CustomerManager() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {customers.map(customer => (
-                            <tr key={customer.ID} className="hover:bg-gray-50 transition-colors">
+                            <tr key={customer.ID} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(customer.ID) ? 'bg-blue-50' : ''}`}>
+                                <td className="p-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(customer.ID)}
+                                        onChange={(e) => handleSelectOne(customer.ID, e.target.checked)}
+                                        className="w-4 h-4 rounded border-gray-300"
+                                    />
+                                </td>
                                 <td className="p-4 font-bold text-gray-900">{customer.name}</td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{customer.phone}</td>
                                 <td className="p-4 text-gray-600 text-sm">{customer.address || '-'}</td>
@@ -162,7 +246,7 @@ function CustomerManager() {
                         ))}
                         {customers.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="p-8 text-center text-gray-400 text-sm">暂无客户数据</td>
+                                <td colSpan="6" className="p-8 text-center text-gray-400 text-sm">暂无客户数据</td>
                             </tr>
                         )}
                     </tbody>

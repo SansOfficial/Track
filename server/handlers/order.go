@@ -371,10 +371,27 @@ func UpdateOrderDetails(c *gin.Context) {
 		return
 	}
 
-	var input struct {
-		models.Order
-		DeadlineStr string `json:"deadline_str"`
+	type OrderItemInput struct {
+		ProductID uint    `json:"product_id"`
+		Length    float64 `json:"length"`
+		Width     float64 `json:"width"`
+		Height    float64 `json:"height"`
+		Quantity  int     `json:"quantity"`
+		Unit      string  `json:"unit"`
+		UnitPrice float64 `json:"unit_price"`
 	}
+
+	var input struct {
+		CustomerName string           `json:"customer_name"`
+		Phone        string           `json:"phone"`
+		Address      string           `json:"address"`
+		Amount       float64          `json:"amount"`
+		Specs        string           `json:"specs"`
+		Remark       string           `json:"remark"`
+		DeadlineStr  string           `json:"deadline_str"`
+		Items        []OrderItemInput `json:"items"`
+	}
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -384,20 +401,12 @@ func UpdateOrderDetails(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "客户姓名不能为空"})
 		return
 	}
-	if input.Phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "联系电话不能为空"})
-		return
-	}
-	if input.Amount <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "订单金额必须大于0"})
-		return
-	}
 
-	// 更新字段
+	// 更新订单基本信息
 	order.CustomerName = input.CustomerName
 	order.Phone = input.Phone
+	order.Address = input.Address
 	order.Amount = input.Amount
-	order.Specs = input.Specs
 	order.Specs = input.Specs
 	order.Remark = input.Remark
 
@@ -406,15 +415,36 @@ func UpdateOrderDetails(c *gin.Context) {
 		if err == nil {
 			order.Deadline = &t
 		}
-	} else {
-		// Allow clearing deadline? Or just ignore if empty?
-		// For now, if empty string sent, maybe we don't clear it unless explicit null,
-		// but struct input usually implies update. Let's assume if it's empty we keep it or
-		// if user wants to clear they might send a specific flag.
-		// Ideally we should check if field is present.
-		// For simplicity in this "Big Screen" context, we update if provided.
+	}
+
+	// 如果提供了产品明细，则更新
+	if len(input.Items) > 0 {
+		// 删除旧的产品明细
+		database.DB.Where("order_id = ?", order.ID).Delete(&models.OrderProduct{})
+
+		// 创建新的产品明细
+		var totalAmount float64 = 0
+		for _, item := range input.Items {
+			op := models.OrderProduct{
+				OrderID:    order.ID,
+				ProductID:  item.ProductID,
+				Length:     item.Length,
+				Width:      item.Width,
+				Height:     item.Height,
+				Quantity:   item.Quantity,
+				Unit:       item.Unit,
+				UnitPrice:  item.UnitPrice,
+				TotalPrice: item.UnitPrice * float64(item.Quantity),
+			}
+			database.DB.Create(&op)
+			totalAmount += op.TotalPrice
+		}
+		order.Amount = totalAmount
 	}
 
 	database.DB.Save(&order)
+
+	// 重新加载完整订单数据返回
+	database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").First(&order, order.ID)
 	c.JSON(http.StatusOK, order)
 }

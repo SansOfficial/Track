@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config';
 import { QRCodeSVG } from 'qrcode.react';
-
 import { useUI } from '../context/UIContext';
-
 import { useAuth } from '../context/AuthContext';
 
 function WorkerManager() {
@@ -11,17 +9,22 @@ function WorkerManager() {
     const { toast, confirm } = useUI();
     const [workers, setWorkers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [qrModalWorker, setQrModalWorker] = useState(null); // Worker to show QR for
+    const [qrModalWorker, setQrModalWorker] = useState(null);
     const [newWorker, setNewWorker] = useState({ name: '', station: '下料', phone: '', scanner_code: '' });
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
+    const [pageSize, setPageSize] = useState(10);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
     const [stationFilter, setStationFilter] = useState('');
 
+    // Batch Selection
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
     const fetchWorkers = () => {
-        let url = `${API_BASE_URL}/workers?page=${page}&page_size=5`;
+        let url = `${API_BASE_URL}/workers?page=${page}&page_size=${pageSize}`;
         if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
         if (stationFilter) url += `&station=${encodeURIComponent(stationFilter)}`;
 
@@ -29,7 +32,9 @@ function WorkerManager() {
             .then(res => res.json())
             .then(data => {
                 setWorkers(data.data || []);
-                setTotalPages(Math.ceil((data.total || 0) / 5));
+                setTotal(data.total || 0);
+                setTotalPages(Math.ceil((data.total || 0) / pageSize));
+                setSelectedIds(new Set());
             })
             .catch(err => {
                 console.error(err);
@@ -40,9 +45,48 @@ function WorkerManager() {
     useEffect(() => {
         const timer = setTimeout(fetchWorkers, 300);
         return () => clearTimeout(timer);
-    }, [page, searchQuery, stationFilter]);
+    }, [page, pageSize, searchQuery, stationFilter]);
 
-    // ... redefine logic ... (Skipping comments for conciseness)
+    // Selection handlers
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(new Set(workers.map(w => w.ID)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id, checked) => {
+        const newSet = new Set(selectedIds);
+        if (checked) {
+            newSet.add(id);
+        } else {
+            newSet.delete(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const isAllSelected = workers.length > 0 && selectedIds.size === workers.length;
+
+    // Batch delete
+    const handleBatchDelete = async () => {
+        if (selectedIds.size === 0) return;
+        const shouldDelete = await confirm(`确定要删除选中的 ${selectedIds.size} 个工人吗？`);
+        if (!shouldDelete) return;
+
+        let success = 0, fail = 0;
+        for (const id of selectedIds) {
+            try {
+                const res = await fetchWithAuth(`${API_BASE_URL}/workers/${id}`, { method: 'DELETE' });
+                if (res.ok) success++;
+                else fail++;
+            } catch {
+                fail++;
+            }
+        }
+        toast.success(`批量删除完成：成功 ${success}，失败 ${fail}`);
+        fetchWorkers();
+    };
 
     const openModal = (worker = null) => {
         if (worker) {
@@ -92,7 +136,7 @@ function WorkerManager() {
     };
 
     const handleDelete = async (id) => {
-        const confirmed = await confirm(`确定要删除工人 ${id} 吗？`);
+        const confirmed = await confirm(`确定要删除此工人吗？`);
         if (!confirmed) return;
 
         fetchWithAuth(`${API_BASE_URL}/workers/${id}`, { method: 'DELETE' })
@@ -104,6 +148,21 @@ function WorkerManager() {
                 console.error(err);
                 toast.error('工人删除失败。');
             });
+    };
+
+    // Pagination helpers
+    const getPageNumbers = () => {
+        const pages = [];
+        const maxVisible = 5;
+        let start = Math.max(1, page - Math.floor(maxVisible / 2));
+        let end = Math.min(totalPages, start + maxVisible - 1);
+        if (end - start < maxVisible - 1) {
+            start = Math.max(1, end - maxVisible + 1);
+        }
+        for (let i = start; i <= end; i++) {
+            pages.push(i);
+        }
+        return pages;
     };
 
     return (
@@ -144,10 +203,41 @@ function WorkerManager() {
                 </div>
             </div>
 
+            {/* Batch Actions Bar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-gray-50 border border-gray-200 p-3 mb-4 flex items-center justify-between">
+                    <span className="text-gray-700 text-sm font-medium">
+                        已选择 <span className="font-bold text-black">{selectedIds.size}</span> 个工人
+                    </span>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleBatchDelete}
+                            className="bg-white text-gray-600 px-4 py-1.5 text-sm border border-gray-300 hover:border-red-600 hover:text-red-600 transition-colors"
+                        >
+                            删除
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-gray-400 px-3 py-1.5 text-sm hover:text-black transition-colors"
+                        >
+                            取消
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th className="p-4 w-10">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={handleSelectAll}
+                                    className="w-4 h-4 rounded border-gray-300"
+                                />
+                            </th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">姓名</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">工位</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">扫码枪代码</th>
@@ -157,7 +247,15 @@ function WorkerManager() {
                     </thead>
                     <tbody className="divide-y divide-gray-50">
                         {workers.map(worker => (
-                            <tr key={worker.ID} className="hover:bg-gray-50 transition-colors">
+                            <tr key={worker.ID} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(worker.ID) ? 'bg-blue-50' : ''}`}>
+                                <td className="p-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.has(worker.ID)}
+                                        onChange={(e) => handleSelectOne(worker.ID, e.target.checked)}
+                                        className="w-4 h-4 rounded border-gray-300"
+                                    />
+                                </td>
                                 <td className="p-4 font-bold text-gray-900">{worker.name}</td>
                                 <td className="p-4">
                                     <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs">
@@ -207,31 +305,76 @@ function WorkerManager() {
                         ))}
                         {workers.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="p-8 text-center text-gray-400 text-sm">暂无工人数据</td>
+                                <td colSpan="6" className="p-8 text-center text-gray-400 text-sm">暂无工人数据</td>
                             </tr>
                         )}
                     </tbody>
                 </table>
-                {/* Pagination - Reuse or simplify? Keeping basic pagination from before */}
-                {totalPages > 1 && (
-                    <div className="p-4 flex justify-between items-center border-t border-gray-100">
-                        <button
-                            disabled={page === 1}
-                            onClick={() => setPage(p => p - 1)}
-                            className="px-4 py-2 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
+
+                {/* Enhanced Pagination */}
+                <div className="p-4 flex justify-between items-center border-t border-gray-100">
+                    <div className="flex items-center space-x-4">
+                        <span className="text-sm text-gray-500">
+                            共 {total} 条记录
+                        </span>
+                        <select
+                            value={pageSize}
+                            onChange={(e) => { setPageSize(parseInt(e.target.value)); setPage(1); }}
+                            className="border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:border-black"
                         >
-                            ← 上一页
-                        </button>
-                        <span className="text-xs text-gray-400 font-mono tracking-widest">{page} / {totalPages}</span>
-                        <button
-                            disabled={page === totalPages}
-                            onClick={() => setPage(p => p + 1)}
-                            className="px-4 py-2 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
-                        >
-                            下一页 →
-                        </button>
+                            <option value={10}>10条/页</option>
+                            <option value={20}>20条/页</option>
+                            <option value={50}>50条/页</option>
+                        </select>
                     </div>
-                )}
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center space-x-1">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(1)}
+                                className="px-2 py-1 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
+                            >
+                                «
+                            </button>
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => p - 1)}
+                                className="px-2 py-1 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
+                            >
+                                ‹
+                            </button>
+
+                            {getPageNumbers().map(p => (
+                                <button
+                                    key={p}
+                                    onClick={() => setPage(p)}
+                                    className={`px-3 py-1 text-sm rounded transition-colors ${p === page
+                                        ? 'bg-black text-white'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+
+                            <button
+                                disabled={page === totalPages}
+                                onClick={() => setPage(p => p + 1)}
+                                className="px-2 py-1 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
+                            >
+                                ›
+                            </button>
+                            <button
+                                disabled={page === totalPages}
+                                onClick={() => setPage(totalPages)}
+                                className="px-2 py-1 text-sm text-gray-500 hover:text-black disabled:opacity-30 transition-colors"
+                            >
+                                »
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Modal */}
@@ -293,6 +436,7 @@ function WorkerManager() {
                     </div>
                 </div>
             )}
+
             {/* QR Code Modal */}
             {qrModalWorker && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setQrModalWorker(null)}>
