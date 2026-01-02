@@ -204,3 +204,99 @@ func GetStationStats(c *gin.Context) {
 		"upcoming_orders": upcomingOrders,
 	})
 }
+
+// GetWorkerStats 获取工人工作量统计
+func GetWorkerStats(c *gin.Context) {
+	// 日期范围参数
+	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -7).Format("2006-01-02"))
+	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
+	workerID := c.Query("worker_id") // 可选，指定工人
+
+	// 解析日期
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	end = end.Add(24 * time.Hour) // 包含结束日期整天
+
+	// 1. 按工人统计总工作量
+	type WorkerTotal struct {
+		WorkerID   uint   `json:"worker_id"`
+		WorkerName string `json:"worker_name"`
+		Station    string `json:"station"`
+		Count      int64  `json:"count"`
+	}
+	workerTotals := make([]WorkerTotal, 0)
+	query := database.DB.Model(&models.Process{}).
+		Select("workers.id as worker_id, workers.name as worker_name, workers.station, count(*) as count").
+		Joins("join workers on workers.id = processes.worker_id").
+		Where("processes.created_at >= ? AND processes.created_at < ?", start, end).
+		Group("workers.id, workers.name, workers.station").
+		Order("count desc")
+
+	if workerID != "" {
+		query = query.Where("workers.id = ?", workerID)
+	}
+	query.Scan(&workerTotals)
+
+	// 2. 按日期统计每日工作量
+	type DailyWork struct {
+		Date  string `json:"date"`
+		Count int64  `json:"count"`
+	}
+	dailyWork := make([]DailyWork, 0)
+
+	// 遍历日期范围
+	for d := start; d.Before(end); d = d.AddDate(0, 0, 1) {
+		nextDay := d.AddDate(0, 0, 1)
+		dateStr := d.Format("01-02")
+
+		var count int64
+		q := database.DB.Model(&models.Process{}).
+			Where("created_at >= ? AND created_at < ?", d, nextDay)
+		if workerID != "" {
+			q = q.Where("worker_id = ?", workerID)
+		}
+		q.Count(&count)
+
+		dailyWork = append(dailyWork, DailyWork{
+			Date:  dateStr,
+			Count: count,
+		})
+	}
+
+	// 3. 按工位统计
+	type StationWork struct {
+		Station string `json:"station"`
+		Count   int64  `json:"count"`
+	}
+	stationWork := make([]StationWork, 0)
+	stationQuery := database.DB.Model(&models.Process{}).
+		Select("station, count(*) as count").
+		Where("created_at >= ? AND created_at < ?", start, end).
+		Group("station").
+		Order("count desc")
+	if workerID != "" {
+		stationQuery = stationQuery.Where("worker_id = ?", workerID)
+	}
+	stationQuery.Scan(&stationWork)
+
+	// 4. 工人详细日志 (最近50条)
+	var recentLogs []models.Process
+	logQuery := database.DB.Where("created_at >= ? AND created_at < ?", start, end).
+		Order("created_at desc").
+		Limit(50)
+	if workerID != "" {
+		logQuery = logQuery.Where("worker_id = ?", workerID)
+	}
+	logQuery.Find(&recentLogs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"worker_totals": workerTotals,
+		"daily_work":    dailyWork,
+		"station_work":  stationWork,
+		"recent_logs":   recentLogs,
+		"date_range": gin.H{
+			"start": startDate,
+			"end":   endDate,
+		},
+	})
+}

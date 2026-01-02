@@ -8,16 +8,30 @@ function ProductManager() {
     const { fetchWithAuth } = useAuth();
     const { toast, confirm } = useUI();
     const [products, setProducts] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newProduct, setNewProduct] = useState({ name: '', code: '', price: 0, image: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', code: '', price: 0, image: '', category_id: 0 });
     const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+
+    // 获取分类列表
+    const fetchCategories = () => {
+        fetchWithAuth(`${API_BASE_URL}/categories`)
+            .then(res => res.json())
+            .then(data => setCategories(Array.isArray(data) ? data : []))
+            .catch(err => {
+                console.error(err);
+                setCategories([]);
+            });
+    };
 
     // Fetch products
     const fetchProducts = () => {
         let url = `${API_BASE_URL}/products`;
-        if (searchQuery) {
-            url += `?q=${encodeURIComponent(searchQuery)}`;
-        }
+        const params = [];
+        if (searchQuery) params.push(`q=${encodeURIComponent(searchQuery)}`);
+        if (categoryFilter) params.push(`category_id=${categoryFilter}`);
+        if (params.length > 0) url += '?' + params.join('&');
 
         fetchWithAuth(url)
             .then(res => res.json())
@@ -29,24 +43,28 @@ function ProductManager() {
     };
 
     useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    useEffect(() => {
         const timer = setTimeout(() => {
             fetchProducts();
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, categoryFilter]);
 
     const openModal = (product = null) => {
         if (product) {
             setNewProduct(product);
         } else {
-            setNewProduct({ name: '', code: '', price: 0, image: '' });
+            setNewProduct({ name: '', code: '', price: 0, image: '', category_id: categories[0]?.ID || 0 });
         }
         setIsModalOpen(true);
     };
 
     const closeModal = () => {
         setIsModalOpen(false);
-        setNewProduct({ name: '', code: '', price: 0, image: '' });
+        setNewProduct({ name: '', code: '', price: 0, image: '', category_id: 0 });
     };
 
     const handleSubmit = (e) => {
@@ -155,11 +173,37 @@ function ProductManager() {
                 </div>
             </div>
 
+            {/* 分类筛选标签 */}
+            <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                <button
+                    onClick={() => setCategoryFilter('')}
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all ${categoryFilter === ''
+                        ? 'bg-black text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                >
+                    全部
+                </button>
+                {categories.map(cat => (
+                    <button
+                        key={cat.ID}
+                        onClick={() => setCategoryFilter(cat.ID.toString())}
+                        className={`px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap ${categoryFilter === cat.ID.toString()
+                            ? 'bg-black text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
+                        {cat.icon} {cat.name}
+                    </button>
+                ))}
+            </div>
+
             <div className="bg-white rounded shadow-sm border border-gray-100 overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">图片</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">分类</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">名称</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">编号 / Code</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">单价</th>
@@ -179,6 +223,11 @@ function ProductManager() {
                                     ) : (
                                         <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400">无图</div>
                                     )}
+                                </td>
+                                <td className="p-4">
+                                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                                        {product.category?.icon} {product.category?.name || '未分类'}
+                                    </span>
                                 </td>
                                 <td className="p-4 font-medium text-gray-900">{product.name}</td>
                                 <td className="p-4 text-gray-500 font-mono text-sm">{product.code}</td>
@@ -207,7 +256,7 @@ function ProductManager() {
                         ))}
                         {products.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
+                                <td colSpan="6" className="p-8 text-center text-gray-400 text-sm">暂无产品数据</td>
                             </tr>
                         )}
                     </tbody>
@@ -244,6 +293,23 @@ function ProductManager() {
                                         <p className="text-xs text-gray-400 mt-1">支持 JPG, PNG. 建议 1:1 比例.</p>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 text-sm font-bold mb-2">产品分类</label>
+                                <select
+                                    value={newProduct.category_id || ''}
+                                    onChange={e => setNewProduct({ ...newProduct, category_id: parseInt(e.target.value) || 0 })}
+                                    required
+                                    className="w-full p-2 border border-gray-300 rounded focus:border-black outline-none transition-colors"
+                                >
+                                    <option value="">请选择分类</option>
+                                    {categories.map(cat => (
+                                        <option key={cat.ID} value={cat.ID}>
+                                            {cat.icon} {cat.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div>

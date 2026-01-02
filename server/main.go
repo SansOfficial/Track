@@ -73,6 +73,7 @@ func main() {
 			admin.PUT("/workers/:id", handlers.UpdateWorker)
 			admin.DELETE("/workers/:id", handlers.DeleteWorker)
 			admin.GET("/workers", handlers.GetWorkers)
+			admin.GET("/workers/stats", handlers.GetWorkerStats)
 
 			// Upload
 			admin.POST("/upload", handlers.UploadFile)
@@ -82,6 +83,14 @@ func main() {
 			admin.POST("/customers", handlers.CreateCustomer)
 			admin.PUT("/customers/:id", handlers.UpdateCustomer)
 			admin.DELETE("/customers/:id", handlers.DeleteCustomer)
+
+			// Categories
+			admin.GET("/categories", handlers.GetCategories)
+			admin.POST("/categories", handlers.CreateCategory)
+			admin.PUT("/categories/:id", handlers.UpdateCategory)
+			admin.DELETE("/categories/:id", handlers.DeleteCategory)
+			admin.POST("/categories/:id/attributes", handlers.CreateCategoryAttribute)
+			admin.DELETE("/categories/:id/attributes/:attrId", handlers.DeleteCategoryAttribute)
 		}
 	}
 

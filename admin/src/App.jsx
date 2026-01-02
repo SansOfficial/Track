@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import Dashboard from './pages/Dashboard';
 import CreateOrder from './pages/CreateOrder';
 import WorkerManager from './pages/WorkerManager';
+import WorkerStats from './pages/WorkerStats';
 import ProductManager from './pages/ProductManager';
 import OrderList from './pages/OrderList';
 
@@ -115,6 +116,7 @@ function AppContent() {
           <NavLink to="/customers">客户管理</NavLink>
           <NavLink to="/products">产品管理</NavLink>
           <NavLink to="/workers">工人管理</NavLink>
+          <NavLink to="/workers/stats">工作量统计</NavLink>
 
           <div className="pt-6 mt-6 border-t border-gray-100 px-6">
             <LogoutButton />
@@ -156,6 +158,7 @@ function AppContent() {
           <Route path="/customers" element={<CustomerManager />} />
           <Route path="/products" element={<ProductManager />} />
           <Route path="/workers" element={<WorkerManager />} />
+          <Route path="/workers/stats" element={<WorkerStats />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </main>

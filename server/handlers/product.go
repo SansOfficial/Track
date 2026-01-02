@@ -28,6 +28,15 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	// 验证分类存在
+	if product.CategoryID > 0 {
+		var category models.Category
+		if err := database.DB.First(&category, product.CategoryID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "分类不存在"})
+			return
+		}
+	}
+
 	if err := database.DB.Create(&product).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -38,8 +47,13 @@ func CreateProduct(c *gin.Context) {
 
 func GetProducts(c *gin.Context) {
 	q := c.Query("q")
+	categoryID := c.Query("category_id")
 	var products []models.Product
-	query := database.DB.Model(&models.Product{})
+	query := database.DB.Model(&models.Product{}).Preload("Category").Preload("AttributeValues")
+
+	if categoryID != "" {
+		query = query.Where("category_id = ?", categoryID)
+	}
 
 	if q != "" {
 		wildcard := "%" + q + "%"
