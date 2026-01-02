@@ -67,6 +67,29 @@ jobs:
         # 确保目录存在
         mkdir -p $DEPLOY_DIR
         
+        # ========== 阶段0: 确保 systemd 服务存在 ==========
+        if [ ! -f /etc/systemd/system/trace.service ]; then
+            echo "📝 Creating systemd service file..."
+            cat > /etc/systemd/system/trace.service << 'EOF'
+[Unit]
+Description=Trace Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/trace/server
+ExecStart=/opt/trace/server/trace-server-linux
+Restart=always
+RestartSec=5
+Environment=GIN_MODE=release
+
+[Install]
+WantedBy=multi-user.target
+EOF
+            systemctl daemon-reload
+            systemctl enable trace
+        fi
+        
         # ========== 阶段1: 备份旧版本 ==========
         echo "📦 Stage 1: Backup old version..."
         if [ -f "$DEPLOY_DIR/trace-server-linux" ]; then
