@@ -24,17 +24,17 @@ jobs:
     # 2. 环境配置
     # 注意：Self-hosted Runner 会自动缓存 Node/Go 环境，
     # 第二次运行时这一步会非常快（秒级）。
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: admin/package-lock.json
+    # - name: Setup Node.js
+    #   uses: actions/setup-node@v3
+    #   with:
+    #     node-version: '22'
+    #     cache: 'npm'
+    #     cache-dependency-path: admin/package-lock.json
         
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+    # - name: Setup Go
+    #   uses: actions/setup-go@v4
+    #   with:
+    #     go-version: '1.21'
 
     # 3. 构建前端
     - name: Build Frontend
