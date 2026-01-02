@@ -70,22 +70,20 @@ jobs:
         # ========== 阶段0: 确保 systemd 服务存在 ==========
         if [ ! -f /etc/systemd/system/trace.service ]; then
             echo "📝 Creating systemd service file..."
-            cat > /etc/systemd/system/trace.service << 'EOF'
-[Unit]
-Description=Trace Server
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/trace/server
-ExecStart=/opt/trace/server/trace-server-linux
-Restart=always
-RestartSec=5
-Environment=GIN_MODE=release
-
-[Install]
-WantedBy=multi-user.target
-EOF
+            echo "[Unit]" > /etc/systemd/system/trace.service
+            echo "Description=Trace Server" >> /etc/systemd/system/trace.service
+            echo "After=network.target" >> /etc/systemd/system/trace.service
+            echo "" >> /etc/systemd/system/trace.service
+            echo "[Service]" >> /etc/systemd/system/trace.service
+            echo "Type=simple" >> /etc/systemd/system/trace.service
+            echo "WorkingDirectory=/opt/trace/server" >> /etc/systemd/system/trace.service
+            echo "ExecStart=/opt/trace/server/trace-server-linux" >> /etc/systemd/system/trace.service
+            echo "Restart=always" >> /etc/systemd/system/trace.service
+            echo "RestartSec=5" >> /etc/systemd/system/trace.service
+            echo "Environment=GIN_MODE=release" >> /etc/systemd/system/trace.service
+            echo "" >> /etc/systemd/system/trace.service
+            echo "[Install]" >> /etc/systemd/system/trace.service
+            echo "WantedBy=multi-user.target" >> /etc/systemd/system/trace.service
             systemctl daemon-reload
             systemctl enable trace
         fi
