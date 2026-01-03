@@ -349,7 +349,7 @@ function CreateOrder() {
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.width} onChange={e => setCurrentItem({ ...currentItem, width: e.target.value })} />
                             </div>
                             <div className="col-span-1">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">厚</label>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">高</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.height} onChange={e => setCurrentItem({ ...currentItem, height: e.target.value })} />
                             </div>
                             <div className="col-span-1">
@@ -450,7 +450,7 @@ function CreateOrder() {
                                 <thead className="bg-gray-100 border-b">
                                     <tr>
                                         <th className="p-3">产品</th>
-                                        <th className="p-3">尺寸 (长×宽×厚)</th>
+                                        <th className="p-3">尺寸 (长×宽×高)</th>
                                         <th className="p-3">额外属性</th>
                                         <th className="p-3">数量</th>
                                         <th className="p-3">单位</th>

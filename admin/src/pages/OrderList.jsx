@@ -814,7 +814,7 @@ function OrderList() {
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.width} onChange={e => setEditCurrentItem({ ...editCurrentItem, width: e.target.value })} />
                                         </div>
                                         <div>
-                                            <label className="block text-xs text-gray-500 mb-1">厚</label>
+                                            <label className="block text-xs text-gray-500 mb-1">高</label>
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.height} onChange={e => setEditCurrentItem({ ...editCurrentItem, height: e.target.value })} />
                                         </div>
                                         <div>
