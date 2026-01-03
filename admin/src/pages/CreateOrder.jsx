@@ -28,7 +28,8 @@ function CreateOrder() {
         height: '',
         quantity: 1,
         unit: '块',
-        unit_price: ''
+        unit_price: '',
+        extra_attrs: {} // 额外属性值
     });
 
     const [products, setProducts] = useState([]);
@@ -84,6 +85,21 @@ function CreateOrder() {
         setShowSuggestions(false);
     };
 
+    // 获取当前选中产品的额外属性定义
+    const selectedProduct = products.find(p => p.ID === parseInt(currentItem.product_id));
+    const productAttrs = selectedProduct?.attributes || [];
+
+    // 处理额外属性值变化
+    const handleExtraAttrChange = (attrName, value) => {
+        setCurrentItem({
+            ...currentItem,
+            extra_attrs: {
+                ...currentItem.extra_attrs,
+                [attrName]: value
+            }
+        });
+    };
+
     // Item Management
     const handleAddItem = () => {
         if (!currentItem.product_id) {
@@ -99,6 +115,14 @@ function CreateOrder() {
             return;
         }
 
+        // 检查必填的额外属性
+        for (const attr of productAttrs) {
+            if (attr.required && !currentItem.extra_attrs[attr.name]) {
+                toast.error(`请填写${attr.name}`);
+                return;
+            }
+        }
+
         const product = products.find(p => p.ID === parseInt(currentItem.product_id));
         const newItem = {
             ...currentItem,
@@ -110,7 +134,9 @@ function CreateOrder() {
             unit: currentItem.unit || '块',
             unit_price: parseFloat(currentItem.unit_price),
             product_name: product ? product.name : 'Unknown',
-            total_price: parseFloat(currentItem.unit_price) * parseInt(currentItem.quantity)
+            total_price: parseFloat(currentItem.unit_price) * parseInt(currentItem.quantity),
+            extra_attrs: currentItem.extra_attrs,
+            extra_attrs_json: JSON.stringify(currentItem.extra_attrs) // 用于发送到后端
         };
 
         if (editingIndex >= 0) {
@@ -132,7 +158,8 @@ function CreateOrder() {
             height: '',
             quantity: 1,
             unit: '块',
-            unit_price: ''
+            unit_price: '',
+            extra_attrs: {}
         });
     };
 
@@ -145,7 +172,8 @@ function CreateOrder() {
             height: item.height.toString(),
             quantity: item.quantity,
             unit: item.unit,
-            unit_price: item.unit_price.toString()
+            unit_price: item.unit_price.toString(),
+            extra_attrs: item.extra_attrs || {}
         });
         setEditingIndex(index);
     };
@@ -159,7 +187,8 @@ function CreateOrder() {
             height: '',
             quantity: 1,
             unit: '块',
-            unit_price: ''
+            unit_price: '',
+            extra_attrs: {}
         });
     };
 
@@ -187,7 +216,10 @@ function CreateOrder() {
         const payload = {
             ...formData,
             amount: totalAmount,
-            items: orderItems.map(({ product_name, total_price, ...rest }) => rest)
+            items: orderItems.map(({ product_name, total_price, extra_attrs, extra_attrs_json, ...rest }) => ({
+                ...rest,
+                extra_attrs: extra_attrs_json || JSON.stringify(extra_attrs || {})
+            }))
         };
 
         fetchWithAuth(`${API_BASE_URL}/orders`, {
@@ -300,7 +332,7 @@ function CreateOrder() {
                                 <select
                                     className="w-full p-2 border rounded text-sm"
                                     value={currentItem.product_id}
-                                    onChange={e => setCurrentItem({ ...currentItem, product_id: e.target.value })}
+                                    onChange={e => setCurrentItem({ ...currentItem, product_id: e.target.value, extra_attrs: {} })}
                                 >
                                     <option value="">-- 选择产品 --</option>
                                     {products.map(p => (
@@ -350,6 +382,65 @@ function CreateOrder() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* 额外属性输入区域 */}
+                        {productAttrs.length > 0 && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                                <div className="text-xs font-bold text-gray-500 mb-2">额外属性</div>
+                                <div className="grid grid-cols-4 gap-3">
+                                    {productAttrs.map(attr => (
+                                        <div key={attr.ID}>
+                                            <label className="block text-xs text-gray-500 mb-1">
+                                                {attr.name} {attr.required && <span className="text-red-500">*</span>}
+                                            </label>
+                                            {attr.type === 'select' ? (
+                                                <select
+                                                    className="w-full p-2 border rounded text-sm bg-white"
+                                                    value={currentItem.extra_attrs[attr.name] || ''}
+                                                    onChange={e => handleExtraAttrChange(attr.name, e.target.value)}
+                                                >
+                                                    <option value="">请选择</option>
+                                                    {(() => {
+                                                        try {
+                                                            const options = JSON.parse(attr.options || '[]');
+                                                            return options.map((opt, idx) => (
+                                                                <option key={idx} value={opt}>{opt}</option>
+                                                            ));
+                                                        } catch {
+                                                            return null;
+                                                        }
+                                                    })()}
+                                                </select>
+                                            ) : attr.type === 'textarea' ? (
+                                                <textarea
+                                                    className="w-full p-2 border rounded text-sm"
+                                                    value={currentItem.extra_attrs[attr.name] || ''}
+                                                    onChange={e => handleExtraAttrChange(attr.name, e.target.value)}
+                                                    rows={2}
+                                                    placeholder={`请输入${attr.name}`}
+                                                />
+                                            ) : attr.type === 'number' ? (
+                                                <input
+                                                    type="number"
+                                                    className="w-full p-2 border rounded text-sm"
+                                                    value={currentItem.extra_attrs[attr.name] || ''}
+                                                    onChange={e => handleExtraAttrChange(attr.name, e.target.value)}
+                                                    placeholder={`请输入${attr.name}`}
+                                                />
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    className="w-full p-2 border rounded text-sm"
+                                                    value={currentItem.extra_attrs[attr.name] || ''}
+                                                    onChange={e => handleExtraAttrChange(attr.name, e.target.value)}
+                                                    placeholder={`请输入${attr.name}`}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Items List */}
@@ -360,6 +451,7 @@ function CreateOrder() {
                                     <tr>
                                         <th className="p-3">产品</th>
                                         <th className="p-3">尺寸 (长×宽×厚)</th>
+                                        <th className="p-3">额外属性</th>
                                         <th className="p-3">数量</th>
                                         <th className="p-3">单位</th>
                                         <th className="p-3">单价</th>
@@ -373,6 +465,15 @@ function CreateOrder() {
                                             <td className="p-3 font-medium">{item.product_name}</td>
                                             <td className="p-3 font-mono text-gray-600">
                                                 {item.length} × {item.width} × {item.height}
+                                            </td>
+                                            <td className="p-3 text-xs text-gray-600">
+                                                {item.extra_attrs && Object.keys(item.extra_attrs).length > 0 ? (
+                                                    <div className="space-y-0.5">
+                                                        {Object.entries(item.extra_attrs).map(([key, value]) => (
+                                                            value && <div key={key}><span className="text-gray-400">{key}:</span> {value}</div>
+                                                        ))}
+                                                    </div>
+                                                ) : '-'}
                                             </td>
                                             <td className="p-3">{item.quantity}</td>
                                             <td className="p-3 text-gray-500">{item.unit}</td>
@@ -405,7 +506,7 @@ function CreateOrder() {
                                 </tbody>
                                 <tfoot className="bg-gray-50 font-bold border-t border-gray-300">
                                     <tr>
-                                        <td colSpan="5" className="p-3 text-right">总金额:</td>
+                                        <td colSpan="6" className="p-3 text-right">总金额:</td>
                                         <td className="p-3 text-lg text-red-600">¥{totalAmount.toFixed(2)}</td>
                                         <td></td>
                                     </tr>

@@ -17,13 +17,14 @@ import (
 // CreateOrder 创建新订单
 func CreateOrder(c *gin.Context) {
 	type OrderItemInput struct {
-		ProductID uint    `json:"product_id"`
-		Length    float64 `json:"length"`
-		Width     float64 `json:"width"`
-		Height    float64 `json:"height"`
-		Quantity  int     `json:"quantity"`
-		Unit      string  `json:"unit"` // 计量单位
-		UnitPrice float64 `json:"unit_price"`
+		ProductID  uint    `json:"product_id"`
+		Length     float64 `json:"length"`
+		Width      float64 `json:"width"`
+		Height     float64 `json:"height"`
+		Quantity   int     `json:"quantity"`
+		Unit       string  `json:"unit"`        // 计量单位
+		UnitPrice  float64 `json:"unit_price"`
+		ExtraAttrs string  `json:"extra_attrs"` // 额外属性值 JSON
 	}
 
 	var input struct {
@@ -80,6 +81,7 @@ func CreateOrder(c *gin.Context) {
 				Unit:       item.Unit,
 				UnitPrice:  item.UnitPrice,
 				TotalPrice: total,
+				ExtraAttrs: item.ExtraAttrs,
 			}
 			orderProducts = append(orderProducts, op)
 		}
@@ -371,13 +373,14 @@ func UpdateOrderDetails(c *gin.Context) {
 	}
 
 	type OrderItemInput struct {
-		ProductID uint    `json:"product_id"`
-		Length    float64 `json:"length"`
-		Width     float64 `json:"width"`
-		Height    float64 `json:"height"`
-		Quantity  int     `json:"quantity"`
-		Unit      string  `json:"unit"`
-		UnitPrice float64 `json:"unit_price"`
+		ProductID  uint    `json:"product_id"`
+		Length     float64 `json:"length"`
+		Width      float64 `json:"width"`
+		Height     float64 `json:"height"`
+		Quantity   int     `json:"quantity"`
+		Unit       string  `json:"unit"`
+		UnitPrice  float64 `json:"unit_price"`
+		ExtraAttrs string  `json:"extra_attrs"` // 额外属性值 JSON
 	}
 
 	var input struct {
@@ -434,6 +437,7 @@ func UpdateOrderDetails(c *gin.Context) {
 				Unit:       item.Unit,
 				UnitPrice:  item.UnitPrice,
 				TotalPrice: item.UnitPrice * float64(item.Quantity),
+				ExtraAttrs: item.ExtraAttrs,
 			}
 			database.DB.Create(&op)
 			totalAmount += op.TotalPrice

@@ -132,6 +132,18 @@ export const printQRCode = (order) => {
 };
 
 /**
+ * 解析额外属性 JSON 字符串
+ */
+const parseExtraAttrs = (extraAttrsStr) => {
+    if (!extraAttrsStr) return {};
+    try {
+        return JSON.parse(extraAttrsStr);
+    } catch {
+        return {};
+    }
+};
+
+/**
  * 打印销货清单（完整版，用于发货）
  */
 export const printInvoice = (order) => {
@@ -146,35 +158,45 @@ export const printInvoice = (order) => {
     // 生成产品行
     const productRows = products.map((op, index) => {
         const product = op.product || {};
+        const extraAttrs = parseExtraAttrs(op.extra_attrs);
+        
+        // 格式化规格：长×宽×高
+        const sizeText = (op.length || op.width || op.height) 
+            ? `${op.length || 0}×${op.width || 0}×${op.height || 0}`
+            : '-';
+        
+        // 格式化额外属性为多行显示
+        const extraAttrsList = Object.entries(extraAttrs)
+            .filter(([, value]) => value)
+            .map(([key, value]) => `<div>${key}: ${value}</div>`)
+            .join('');
         
         return `
             <tr>
-                <td>${index + 1}</td>
-                <td>${product.name || '-'}</td>
-                <td>${op.length || 0}</td>
-                <td>${op.width || 0}</td>
-                <td>${op.height || 0}</td>
-                <td>${op.unit || '块'}</td>
-                <td>${op.quantity || 1}</td>
-                <td>${op.unit_price?.toFixed(2) || '0.00'}</td>
-                <td>${op.total_price?.toFixed(2) || '0.00'}</td>
+                <td class="td-seq">${index + 1}</td>
+                <td class="td-name">${product.name || '-'}</td>
+                <td class="td-spec">${sizeText}</td>
+                <td class="td-attrs">${extraAttrsList || '-'}</td>
+                <td class="td-qty">${op.quantity || 1}</td>
+                <td class="td-unit">${op.unit || '块'}</td>
+                <td class="td-price">${op.unit_price?.toFixed(2) || '0.00'}</td>
+                <td class="td-amount">${op.total_price?.toFixed(2) || '0.00'}</td>
             </tr>
         `;
     }).join('');
 
-    // 空行填充（至少10行）
-    const emptyRowsCount = Math.max(0, 10 - products.length);
+    // 空行填充（至少8行）
+    const emptyRowsCount = Math.max(0, 8 - products.length);
     const emptyRows = Array(emptyRowsCount).fill(`
         <tr>
-            <td>&nbsp;</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
+            <td class="td-seq">&nbsp;</td>
+            <td class="td-name"></td>
+            <td class="td-spec"></td>
+            <td class="td-attrs"></td>
+            <td class="td-qty"></td>
+            <td class="td-unit"></td>
+            <td class="td-price"></td>
+            <td class="td-amount"></td>
         </tr>
     `).join('');
 
@@ -225,14 +247,26 @@ export const printInvoice = (order) => {
                 }
                 th, td {
                     border: 1px solid #000;
-                    padding: 6px 4px;
+                    padding: 8px 6px;
                     text-align: center;
-                    font-size: 11px;
+                    font-size: 12px;
+                    vertical-align: middle;
                 }
                 th {
                     background: #f0f0f0;
                     font-weight: bold;
+                    font-size: 12px;
                 }
+                /* 各列宽度控制 */
+                .td-seq { width: 35px; }
+                .td-name { width: 120px; text-align: left; font-weight: 500; }
+                .td-spec { width: 100px; font-family: monospace; }
+                .td-attrs { text-align: left; font-size: 11px; min-width: 120px; }
+                .td-attrs div { margin: 1px 0; }
+                .td-qty { width: 50px; }
+                .td-unit { width: 50px; }
+                .td-price { width: 70px; }
+                .td-amount { width: 80px; font-weight: bold; }
                 .total-row {
                     display: flex;
                     justify-content: space-between;
@@ -289,15 +323,14 @@ export const printInvoice = (order) => {
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 30px;">序</th>
-                        <th>品名</th>
-                        <th>长</th>
-                        <th>宽</th>
-                        <th>高</th>
-                        <th>单位</th>
-                        <th>数量</th>
-                        <th>单价</th>
-                        <th>金额</th>
+                        <th class="td-seq">序号</th>
+                        <th class="td-name">品名</th>
+                        <th class="td-spec">规格(长×宽×高)</th>
+                        <th class="td-attrs">属性</th>
+                        <th class="td-qty">数量</th>
+                        <th class="td-unit">单位</th>
+                        <th class="td-price">单价</th>
+                        <th class="td-amount">金额</th>
                     </tr>
                 </thead>
                 <tbody>

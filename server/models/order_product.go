@@ -19,4 +19,7 @@ type OrderProduct struct {
 	Unit       string  `json:"unit"`        // 计量单位: 块、平米、个等
 	UnitPrice  float64 `json:"unit_price"`  // Price per unit
 	TotalPrice float64 `json:"total_price"` // Quantity * UnitPrice
+
+	// 额外属性值 (JSON 格式，如 {"颜色": "红色", "材质": "棉麻"})
+	ExtraAttrs string `json:"extra_attrs"`
 }

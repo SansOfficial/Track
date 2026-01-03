@@ -31,7 +31,8 @@ function OrderList() {
         height: '',
         quantity: 1,
         unit: '块',
-        unit_price: ''
+        unit_price: '',
+        extra_attrs: {}
     });
 
     // Products & Customers for edit modal
@@ -177,18 +178,29 @@ function OrderList() {
             address: order.address || ''
         });
         // Convert order_products to edit items
-        const items = (order.order_products || []).map(op => ({
-            id: op.ID,
-            product_id: op.product_id,
-            product_name: op.product?.name || '',
-            length: op.length || 0,
-            width: op.width || 0,
-            height: op.height || 0,
-            quantity: op.quantity || 1,
-            unit: op.unit || '块',
-            unit_price: op.unit_price || 0,
-            total_price: op.total_price || 0
-        }));
+        const items = (order.order_products || []).map(op => {
+            let extraAttrs = {};
+            if (op.extra_attrs) {
+                try {
+                    extraAttrs = JSON.parse(op.extra_attrs);
+                } catch (e) {
+                    console.error('Failed to parse extra_attrs:', e);
+                }
+            }
+            return {
+                id: op.ID,
+                product_id: op.product_id,
+                product_name: op.product?.name || '',
+                length: op.length || 0,
+                width: op.width || 0,
+                height: op.height || 0,
+                quantity: op.quantity || 1,
+                unit: op.unit || '块',
+                unit_price: op.unit_price || 0,
+                total_price: op.total_price || 0,
+                extra_attrs: extraAttrs
+            };
+        });
         setEditOrderItems(items);
         setEditCurrentItem({
             product_id: '',
@@ -197,10 +209,26 @@ function OrderList() {
             height: '',
             quantity: 1,
             unit: '块',
-            unit_price: ''
+            unit_price: '',
+            extra_attrs: {}
         });
         setEditingItemIndex(-1);
         setIsEditModalOpen(true);
+    };
+
+    // 获取当前编辑选中产品的额外属性定义
+    const editSelectedProduct = products.find(p => p.ID === parseInt(editCurrentItem.product_id));
+    const editProductAttrs = editSelectedProduct?.attributes || [];
+
+    // 处理额外属性值变化
+    const handleEditExtraAttrChange = (attrName, value) => {
+        setEditCurrentItem({
+            ...editCurrentItem,
+            extra_attrs: {
+                ...editCurrentItem.extra_attrs,
+                [attrName]: value
+            }
+        });
     };
 
     const handleEditAddItem = () => {
@@ -213,6 +241,14 @@ function OrderList() {
             return;
         }
 
+        // 检查必填的额外属性
+        for (const attr of editProductAttrs) {
+            if (attr.required && !editCurrentItem.extra_attrs[attr.name]) {
+                toast.error(`请填写${attr.name}`);
+                return;
+            }
+        }
+
         const product = products.find(p => p.ID === parseInt(editCurrentItem.product_id));
         const newItem = {
             product_id: parseInt(editCurrentItem.product_id),
@@ -223,7 +259,8 @@ function OrderList() {
             quantity: parseInt(editCurrentItem.quantity) || 1,
             unit: editCurrentItem.unit || '块',
             unit_price: parseFloat(editCurrentItem.unit_price),
-            total_price: parseFloat(editCurrentItem.unit_price) * (parseInt(editCurrentItem.quantity) || 1)
+            total_price: parseFloat(editCurrentItem.unit_price) * (parseInt(editCurrentItem.quantity) || 1),
+            extra_attrs: editCurrentItem.extra_attrs
         };
 
         if (editingItemIndex >= 0) {
@@ -244,7 +281,8 @@ function OrderList() {
             height: '',
             quantity: 1,
             unit: '块',
-            unit_price: ''
+            unit_price: '',
+            extra_attrs: {}
         });
     };
 
@@ -257,7 +295,8 @@ function OrderList() {
             height: item.height.toString(),
             quantity: item.quantity,
             unit: item.unit,
-            unit_price: item.unit_price.toString()
+            unit_price: item.unit_price.toString(),
+            extra_attrs: item.extra_attrs || {}
         });
         setEditingItemIndex(index);
     };
@@ -271,7 +310,8 @@ function OrderList() {
             height: '',
             quantity: 1,
             unit: '块',
-            unit_price: ''
+            unit_price: '',
+            extra_attrs: {}
         });
     };
 
@@ -327,7 +367,10 @@ function OrderList() {
             address: editingOrder.address,
             amount: editTotalAmount,
             remark: editingOrder.remark,
-            items: editOrderItems.map(({ id, product_name, total_price, ...rest }) => rest)
+            items: editOrderItems.map(({ id, product_name, total_price, extra_attrs, ...rest }) => ({
+                ...rest,
+                extra_attrs: JSON.stringify(extra_attrs || {})
+            }))
         };
 
         try {
@@ -754,7 +797,7 @@ function OrderList() {
                                             <select
                                                 className="w-full p-2 border rounded text-sm"
                                                 value={editCurrentItem.product_id}
-                                                onChange={e => setEditCurrentItem({ ...editCurrentItem, product_id: e.target.value })}
+                                                onChange={e => setEditCurrentItem({ ...editCurrentItem, product_id: e.target.value, extra_attrs: {} })}
                                             >
                                                 <option value="">选择产品</option>
                                                 {products.map(p => (
@@ -794,6 +837,66 @@ function OrderList() {
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.unit_price} onChange={e => setEditCurrentItem({ ...editCurrentItem, unit_price: e.target.value })} />
                                         </div>
                                     </div>
+
+                                    {/* 额外属性输入区域 */}
+                                    {editProductAttrs.length > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-gray-200">
+                                            <div className="text-xs font-bold text-gray-500 mb-2">额外属性</div>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {editProductAttrs.map(attr => (
+                                                    <div key={attr.ID}>
+                                                        <label className="block text-xs text-gray-500 mb-1">
+                                                            {attr.name} {attr.required && <span className="text-red-500">*</span>}
+                                                        </label>
+                                                        {attr.type === 'select' ? (
+                                                            <select
+                                                                className="w-full p-2 border rounded text-sm bg-white"
+                                                                value={editCurrentItem.extra_attrs[attr.name] || ''}
+                                                                onChange={e => handleEditExtraAttrChange(attr.name, e.target.value)}
+                                                            >
+                                                                <option value="">请选择</option>
+                                                                {(() => {
+                                                                    try {
+                                                                        const options = JSON.parse(attr.options || '[]');
+                                                                        return options.map((opt, idx) => (
+                                                                            <option key={idx} value={opt}>{opt}</option>
+                                                                        ));
+                                                                    } catch {
+                                                                        return null;
+                                                                    }
+                                                                })()}
+                                                            </select>
+                                                        ) : attr.type === 'textarea' ? (
+                                                            <textarea
+                                                                className="w-full p-2 border rounded text-sm"
+                                                                value={editCurrentItem.extra_attrs[attr.name] || ''}
+                                                                onChange={e => handleEditExtraAttrChange(attr.name, e.target.value)}
+                                                                rows={2}
+                                                                placeholder={`请输入${attr.name}`}
+                                                            />
+                                                        ) : attr.type === 'number' ? (
+                                                            <input
+                                                                type="number"
+                                                                className="w-full p-2 border rounded text-sm"
+                                                                value={editCurrentItem.extra_attrs[attr.name] || ''}
+                                                                onChange={e => handleEditExtraAttrChange(attr.name, e.target.value)}
+                                                                placeholder={`请输入${attr.name}`}
+                                                            />
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                className="w-full p-2 border rounded text-sm"
+                                                                value={editCurrentItem.extra_attrs[attr.name] || ''}
+                                                                onChange={e => handleEditExtraAttrChange(attr.name, e.target.value)}
+                                                                placeholder={`请输入${attr.name}`}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="mt-3 flex justify-end space-x-2">
                                         {editingItemIndex >= 0 && (
                                             <button type="button" onClick={handleEditCancelEdit} className="px-3 py-1.5 text-gray-500 hover:text-black text-sm border border-gray-300 rounded">
@@ -814,6 +917,7 @@ function OrderList() {
                                                 <tr>
                                                     <th className="p-2">产品</th>
                                                     <th className="p-2">尺寸</th>
+                                                    <th className="p-2">额外属性</th>
                                                     <th className="p-2">数量</th>
                                                     <th className="p-2">单位</th>
                                                     <th className="p-2">单价</th>
@@ -826,6 +930,15 @@ function OrderList() {
                                                     <tr key={idx} className={editingItemIndex === idx ? 'bg-yellow-50' : ''}>
                                                         <td className="p-2 font-medium">{item.product_name}</td>
                                                         <td className="p-2 font-mono text-gray-600 text-xs">{item.length}×{item.width}×{item.height}</td>
+                                                        <td className="p-2 text-xs text-gray-600">
+                                                            {item.extra_attrs && Object.keys(item.extra_attrs).length > 0 ? (
+                                                                <div className="space-y-0.5">
+                                                                    {Object.entries(item.extra_attrs).map(([key, value]) => (
+                                                                        value && <div key={key}><span className="text-gray-400">{key}:</span> {value}</div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : '-'}
+                                                        </td>
                                                         <td className="p-2">{item.quantity}</td>
                                                         <td className="p-2 text-gray-500">{item.unit}</td>
                                                         <td className="p-2">¥{item.unit_price}</td>
@@ -847,7 +960,7 @@ function OrderList() {
                                             </tbody>
                                             <tfoot className="bg-gray-50 font-bold border-t">
                                                 <tr>
-                                                    <td colSpan="5" className="p-2 text-right">总金额:</td>
+                                                    <td colSpan="6" className="p-2 text-right">总金额:</td>
                                                     <td className="p-2 text-red-600">¥{editTotalAmount.toFixed(2)}</td>
                                                     <td></td>
                                                 </tr>
