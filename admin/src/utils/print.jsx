@@ -3,6 +3,17 @@ import { QRCodeSVG } from 'qrcode.react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 /**
+ * 格式化日期为 YYYY-MM-DD 格式
+ */
+const formatDate = (dateStr) => {
+    const date = new Date(dateStr || Date.now());
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+/**
  * 打印二维码标签（创建订单后使用）
  * 只显示客户信息和二维码，不显示金额
  */
@@ -109,7 +120,7 @@ export const printQRCode = (order) => {
                 ` : ''}
                 <div class="info-row">
                     <span class="info-label">日期</span>
-                    <span class="info-value">${new Date(order.CreatedAt || Date.now()).toLocaleDateString()}</span>
+                    <span class="info-value">${formatDate(order.CreatedAt)}</span>
                 </div>
             </div>
 
@@ -203,6 +214,30 @@ export const printInvoice = (order) => {
     // 金额大写转换
     const amountChinese = numberToChinese(order.amount || 0);
 
+    // 解析附件
+    let attachments = [];
+    if (order.attachments) {
+        try {
+            attachments = JSON.parse(order.attachments);
+        } catch {
+            attachments = [];
+        }
+    }
+
+    // 生成附件图片HTML
+    // 使用完整URL确保在打印窗口中能正确加载
+    const baseUrl = window.location.origin;
+    const attachmentsHtml = attachments.length > 0 ? `
+        <div class="attachments">
+            <div class="attachments-title">附件图片</div>
+            <div class="attachments-grid">
+                ${attachments.map((url, index) => `
+                    <img src="${url.startsWith('http') ? url : baseUrl + url}" alt="附件${index + 1}" onerror="this.style.display='none'" />
+                `).join('')}
+            </div>
+        </div>
+    ` : '';
+
     const html = `
         <!DOCTYPE html>
         <html>
@@ -267,6 +302,28 @@ export const printInvoice = (order) => {
                 .td-unit { width: 50px; }
                 .td-price { width: 70px; }
                 .td-amount { width: 80px; font-weight: bold; }
+                .attachments {
+                    margin-top: 15px;
+                    page-break-inside: avoid;
+                }
+                .attachments-title {
+                    font-weight: bold;
+                    font-size: 12px;
+                    margin-bottom: 8px;
+                    border-bottom: 1px solid #ccc;
+                    padding-bottom: 4px;
+                }
+                .attachments-grid {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+                .attachments-grid img {
+                    max-width: 180px;
+                    max-height: 150px;
+                    border: 1px solid #ddd;
+                    object-fit: contain;
+                }
                 .total-row {
                     display: flex;
                     justify-content: space-between;
@@ -308,7 +365,7 @@ export const printInvoice = (order) => {
 
             <div class="header-info">
                 <div class="header-left">
-                    <span>日期：${new Date(order.CreatedAt || Date.now()).toLocaleDateString().replace(/\//g, '')}</span>
+                    <span>日期：${formatDate(order.CreatedAt)}</span>
                     <span>客户：${order.customer_name}</span>
                 </div>
                 <div class="header-right">
@@ -347,6 +404,8 @@ export const printInvoice = (order) => {
             <div class="remark">
                 <strong>备注：</strong>${order.remark || ''}
             </div>
+
+            ${attachmentsHtml}
 
             <div class="notes">
                 <p>1. 产品计价单位按每平米计算，后期增加花色，请以实际报价为准。</p>

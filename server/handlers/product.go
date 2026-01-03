@@ -121,6 +121,37 @@ func CreateProductAttribute(c *gin.Context) {
 	c.JSON(http.StatusOK, attr)
 }
 
+// UpdateProductAttribute 更新产品属性
+func UpdateProductAttribute(c *gin.Context) {
+	attrID := c.Param("attrId")
+
+	var attr models.ProductAttribute
+	if err := database.DB.First(&attr, attrID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "属性不存在"})
+		return
+	}
+
+	var input models.ProductAttribute
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "属性名称不能为空"})
+		return
+	}
+
+	attr.Name = input.Name
+	attr.Type = input.Type
+	attr.Options = input.Options
+	attr.Required = input.Required
+	attr.SortOrder = input.SortOrder
+
+	database.DB.Save(&attr)
+	c.JSON(http.StatusOK, attr)
+}
+
 // DeleteProductAttribute 删除产品属性
 func DeleteProductAttribute(c *gin.Context) {
 	attrID := c.Param("attrId")

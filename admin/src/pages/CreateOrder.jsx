@@ -40,7 +40,12 @@ function CreateOrder() {
     // 编辑模式
     const [editingIndex, setEditingIndex] = useState(-1);
 
+    // 附件图片
+    const [attachments, setAttachments] = useState([]);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
     const navigate = useNavigate();
+    const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
 
     useEffect(() => {
         // Fetch products
@@ -83,6 +88,75 @@ function CreateOrder() {
             address: customer.address || ''
         });
         setShowSuggestions(false);
+    };
+
+    // 图片上传处理
+    const uploadImage = async (file) => {
+        if (!file || !file.type.startsWith('image/')) {
+            toast.error('请上传图片文件');
+            return null;
+        }
+
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.url) {
+                return data.url;
+            } else {
+                toast.error('图片上传失败');
+                return null;
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('上传出错');
+            return null;
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleImageUpload = async (e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        for (const file of files) {
+            const url = await uploadImage(file);
+            if (url) {
+                setAttachments(prev => [...prev, url]);
+            }
+        }
+        e.target.value = ''; // 清空input以便再次上传同一文件
+    };
+
+    const handlePaste = async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) {
+                    const url = await uploadImage(file);
+                    if (url) {
+                        setAttachments(prev => [...prev, url]);
+                        toast.success('图片已粘贴上传');
+                    }
+                }
+                break;
+            }
+        }
+    };
+
+    const handleRemoveAttachment = (index) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
     // 获取当前选中产品的额外属性定义
@@ -216,6 +290,7 @@ function CreateOrder() {
         const payload = {
             ...formData,
             amount: totalAmount,
+            attachments: JSON.stringify(attachments),
             items: orderItems.map(({ product_name, total_price, extra_attrs, extra_attrs_json, ...rest }) => ({
                 ...rest,
                 extra_attrs: extra_attrs_json || JSON.stringify(extra_attrs || {})
@@ -533,6 +608,67 @@ function CreateOrder() {
                             <textarea name="remark" value={formData.remark} onChange={handleChange} className="w-full p-2 border rounded h-24 outline-none focus:border-black transition-colors" placeholder="请输入备注信息..."></textarea>
                         </div>
                     </div>
+                </div>
+
+                {/* 附件图片 */}
+                <div className="bg-white p-6 rounded shadow-sm border border-gray-200">
+                    <h3 className="text-lg font-bold mb-4 border-l-4 border-black pl-3">
+                        附件图片
+                        <span className="text-sm font-normal text-gray-400 ml-2">（可粘贴图片快捷上传）</span>
+                    </h3>
+                    
+                    {/* 上传区域 */}
+                    <div 
+                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                        onPaste={handlePaste}
+                        tabIndex={0}
+                    >
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="attachment-upload"
+                        />
+                        <label htmlFor="attachment-upload" className="cursor-pointer">
+                            <div className="text-gray-400 mb-2">
+                                <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <p className="text-gray-500 text-sm">
+                                点击上传图片，或 <span className="font-bold text-black">Ctrl+V 粘贴</span> 图片
+                            </p>
+                            <p className="text-gray-400 text-xs mt-1">支持 JPG、PNG 格式</p>
+                        </label>
+                        {uploadingImage && (
+                            <div className="mt-2 text-blue-500 text-sm">上传中...</div>
+                        )}
+                    </div>
+
+                    {/* 已上传图片预览 */}
+                    {attachments.length > 0 && (
+                        <div className="mt-4 grid grid-cols-4 gap-4">
+                            {attachments.map((url, index) => (
+                                <div key={index} className="relative group">
+                                    <img
+                                        src={url.startsWith('http') ? url : `${IMAGE_BASE_URL}${url}`}
+                                        alt={`附件 ${index + 1}`}
+                                        className="w-full h-24 object-cover rounded border border-gray-200"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveAttachment(index)}
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="删除"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex justify-end pt-4 space-x-4">

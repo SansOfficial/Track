@@ -42,7 +42,12 @@ function OrderList() {
     const [filteredCustomers, setFilteredCustomers] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
 
+    // 附件图片
+    const [editAttachments, setEditAttachments] = useState([]);
+    const [uploadingImage, setUploadingImage] = useState(false);
+
     const { toast, confirm } = useUI();
+    const IMAGE_BASE_URL = API_BASE_URL.replace('/api', '');
 
     useEffect(() => {
         fetchWithAuth(`${API_BASE_URL}/products`)
@@ -213,7 +218,88 @@ function OrderList() {
             extra_attrs: {}
         });
         setEditingItemIndex(-1);
+        
+        // 初始化附件
+        let attachments = [];
+        if (order.attachments) {
+            try {
+                attachments = JSON.parse(order.attachments);
+            } catch (e) {
+                console.error('Failed to parse attachments:', e);
+            }
+        }
+        setEditAttachments(attachments);
+        
         setIsEditModalOpen(true);
+    };
+
+    // 图片上传处理
+    const uploadImage = async (file) => {
+        if (!file || !file.type.startsWith('image/')) {
+            toast.error('请上传图片文件');
+            return null;
+        }
+
+        setUploadingImage(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetchWithAuth(`${API_BASE_URL}/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.url) {
+                return data.url;
+            } else {
+                toast.error('图片上传失败');
+                return null;
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('上传出错');
+            return null;
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleEditImageUpload = async (e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        for (const file of files) {
+            const url = await uploadImage(file);
+            if (url) {
+                setEditAttachments(prev => [...prev, url]);
+            }
+        }
+        e.target.value = '';
+    };
+
+    const handleEditPaste = async (e) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const file = item.getAsFile();
+                if (file) {
+                    const url = await uploadImage(file);
+                    if (url) {
+                        setEditAttachments(prev => [...prev, url]);
+                        toast.success('图片已粘贴上传');
+                    }
+                }
+                break;
+            }
+        }
+    };
+
+    const handleEditRemoveAttachment = (index) => {
+        setEditAttachments(prev => prev.filter((_, i) => i !== index));
     };
 
     // 获取当前编辑选中产品的额外属性定义
@@ -367,6 +453,7 @@ function OrderList() {
             address: editingOrder.address,
             amount: editTotalAmount,
             remark: editingOrder.remark,
+            attachments: JSON.stringify(editAttachments),
             items: editOrderItems.map(({ id, product_name, total_price, extra_attrs, ...rest }) => ({
                 ...rest,
                 extra_attrs: JSON.stringify(extra_attrs || {})
@@ -523,6 +610,7 @@ function OrderList() {
                                 />
                             </th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">订单号</th>
+                            <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">下单时间</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">客户</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">产品</th>
                             <th className="p-4 font-medium text-gray-500 text-xs uppercase tracking-wider">金额</th>
@@ -544,6 +632,12 @@ function OrderList() {
                                 <td className="p-4">
                                     <div className="font-bold text-gray-900 text-xs font-mono">{order.order_no || `ID: ${order.ID}`}</div>
                                     <div className="text-xs text-gray-400 mt-1">ID: #{order.ID}</div>
+                                </td>
+                                <td className="p-4 text-xs text-gray-500">
+                                    {(() => {
+                                        const d = new Date(order.CreatedAt);
+                                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    })()}
                                 </td>
                                 <td className="p-4">
                                     <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
@@ -611,7 +705,7 @@ function OrderList() {
                         ))}
                         {orders.length === 0 && (
                             <tr>
-                                <td colSpan="7" className="p-8 text-center text-gray-400 text-sm">暂无订单数据</td>
+                                <td colSpan="8" className="p-8 text-center text-gray-400 text-sm">暂无订单数据</td>
                             </tr>
                         )}
                     </tbody>
@@ -983,6 +1077,59 @@ function OrderList() {
                                     className="w-full p-2 border rounded text-sm focus:border-black outline-none h-20"
                                     placeholder="订单备注..."
                                 />
+                            </div>
+
+                            {/* 附件图片 */}
+                            <div className="bg-gray-50 p-4 rounded border">
+                                <h4 className="font-bold mb-3 text-sm text-gray-600">
+                                    附件图片
+                                    <span className="font-normal text-gray-400 ml-2">（可粘贴图片快捷上传）</span>
+                                </h4>
+                                
+                                <div 
+                                    className="border-2 border-dashed border-gray-300 rounded p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                                    onPaste={handleEditPaste}
+                                    tabIndex={0}
+                                >
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleEditImageUpload}
+                                        className="hidden"
+                                        id="edit-attachment-upload"
+                                    />
+                                    <label htmlFor="edit-attachment-upload" className="cursor-pointer">
+                                        <p className="text-gray-500 text-sm">
+                                            点击上传图片，或 <span className="font-bold text-black">Ctrl+V 粘贴</span>
+                                        </p>
+                                    </label>
+                                    {uploadingImage && (
+                                        <div className="mt-1 text-blue-500 text-xs">上传中...</div>
+                                    )}
+                                </div>
+
+                                {editAttachments.length > 0 && (
+                                    <div className="mt-3 grid grid-cols-5 gap-2">
+                                        {editAttachments.map((url, index) => (
+                                            <div key={index} className="relative group">
+                                                <img
+                                                    src={url.startsWith('http') ? url : `${IMAGE_BASE_URL}${url}`}
+                                                    alt={`附件 ${index + 1}`}
+                                                    className="w-full h-16 object-cover rounded border border-gray-200"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditRemoveAttachment(index)}
+                                                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="删除"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Actions */}

@@ -18,6 +18,7 @@ type Order struct {
 	Deadline      *time.Time     `json:"deadline"` // Estimated Completion Date
 	OrderNo       string         `json:"order_no"`
 	QRCode        string         `json:"qr_code"`
+	Attachments   string         `json:"attachments"` // 附件图片URL列表 (JSON数组)
 	OrderProducts []OrderProduct `json:"order_products" gorm:"foreignKey:OrderID"`
 	Processes     []Process      `json:"processes"`
 }

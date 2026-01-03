@@ -391,6 +391,7 @@ func UpdateOrderDetails(c *gin.Context) {
 		Specs        string           `json:"specs"`
 		Remark       string           `json:"remark"`
 		DeadlineStr  string           `json:"deadline_str"`
+		Attachments  string           `json:"attachments"` // 附件图片URL列表 (JSON数组)
 		Items        []OrderItemInput `json:"items"`
 	}
 
@@ -411,6 +412,7 @@ func UpdateOrderDetails(c *gin.Context) {
 	order.Amount = input.Amount
 	order.Specs = input.Specs
 	order.Remark = input.Remark
+	order.Attachments = input.Attachments
 
 	if input.DeadlineStr != "" {
 		t, err := time.Parse("2006-01-02", input.DeadlineStr)

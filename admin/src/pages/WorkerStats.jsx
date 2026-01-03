@@ -242,7 +242,12 @@ function WorkerStats() {
                                 stats.recent_logs.map((log) => (
                                     <tr key={log.ID} className="hover:bg-gray-50">
                                         <td className="p-4 text-gray-500 text-xs">
-                                            {new Date(log.CreatedAt).toLocaleString()}
+                                            {(() => {
+                                                const d = new Date(log.CreatedAt);
+                                                const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                                const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+                                                return `${date} ${time}`;
+                                            })()}
                                         </td>
                                         <td className="p-4">
                                             <span className="font-mono text-xs text-gray-600">{log.order_no || '-'}</span>

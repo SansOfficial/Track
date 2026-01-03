@@ -14,6 +14,7 @@ function ProductManager() {
 
     const [selectedProductForAttrs, setSelectedProductForAttrs] = useState(null);
     const [newAttr, setNewAttr] = useState({ name: '', type: 'text', required: false, options: '' });
+    const [editingAttr, setEditingAttr] = useState(null); // 正在编辑的属性
 
     // Search
     const [searchQuery, setSearchQuery] = useState('');
@@ -163,6 +164,69 @@ function ProductManager() {
             })
             .then(() => {
                 toast.success('属性已添加');
+                setNewAttr({ name: '', type: 'text', required: false, options: '' });
+                fetchProducts();
+            })
+            .catch(err => toast.error(err.message));
+    };
+
+    const handleEditAttribute = (attr) => {
+        // 解析 options 为多行文本
+        let optionsText = '';
+        if (attr.type === 'select' && attr.options) {
+            try {
+                const optionsArr = JSON.parse(attr.options);
+                optionsText = optionsArr.join('\n');
+            } catch {
+                optionsText = attr.options;
+            }
+        }
+        setEditingAttr({
+            ...attr,
+            options: optionsText
+        });
+        setNewAttr({
+            name: attr.name,
+            type: attr.type,
+            required: attr.required,
+            options: optionsText
+        });
+    };
+
+    const handleCancelEditAttr = () => {
+        setEditingAttr(null);
+        setNewAttr({ name: '', type: 'text', required: false, options: '' });
+    };
+
+    const handleUpdateAttribute = (e) => {
+        e.preventDefault();
+        if (!selectedProductForAttrs || !editingAttr) return;
+
+        let optionsToSend = '';
+        if (newAttr.type === 'select') {
+            const lines = newAttr.options.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length === 0) {
+                toast.error('请至少输入一个选项');
+                return;
+            }
+            optionsToSend = JSON.stringify(lines);
+        }
+
+        fetchWithAuth(`${API_BASE_URL}/products/${selectedProductForAttrs.ID}/attributes/${editingAttr.ID}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ...newAttr,
+                options: optionsToSend
+            })
+        })
+            .then(async res => {
+                if (!res.ok) throw new Error((await res.json()).error);
+                return res.json();
+            })
+            .then(() => {
+                toast.success('属性已更新');
+                setEditingAttr(null);
                 setNewAttr({ name: '', type: 'text', required: false, options: '' });
                 fetchProducts();
             })
@@ -339,7 +403,7 @@ function ProductManager() {
                         {/* Attribute List */}
                         <div className="mb-8 space-y-3">
                             {selectedProductForAttrs.attributes?.map(attr => (
-                                <div key={attr.ID} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-100">
+                                <div key={attr.ID} className={`flex justify-between items-center p-3 rounded border ${editingAttr?.ID === attr.ID ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-100'}`}>
                                     <div className="flex items-center space-x-4">
                                         <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded text-gray-600 uppercase w-16 text-center">
                                             {attr.type}
@@ -348,19 +412,36 @@ function ProductManager() {
                                         {attr.required && <span className="text-xs text-red-500 border border-red-200 px-1 rounded">必填</span>}
                                         {attr.type === 'select' && (
                                             <span className="text-xs text-gray-400 max-w-xs truncate" title={attr.options}>
-                                                选项: {attr.options}
+                                                选项: {(() => {
+                                                    try {
+                                                        return JSON.parse(attr.options).join(', ');
+                                                    } catch {
+                                                        return attr.options;
+                                                    }
+                                                })()}
                                             </span>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={() => handleDeleteAttribute(attr.ID)}
-                                        className="text-gray-400 hover:text-red-700 transition-colors p-1 rounded hover:bg-gray-100"
-                                        title="移除"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                                    <div className="flex space-x-1">
+                                        <button
+                                            onClick={() => handleEditAttribute(attr)}
+                                            className="text-gray-400 hover:text-black transition-colors p-1 rounded hover:bg-gray-100"
+                                            title="编辑"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteAttribute(attr.ID)}
+                                            className="text-gray-400 hover:text-red-700 transition-colors p-1 rounded hover:bg-gray-100"
+                                            title="移除"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                             {(!selectedProductForAttrs.attributes || selectedProductForAttrs.attributes.length === 0) && (
@@ -370,10 +451,21 @@ function ProductManager() {
                             )}
                         </div>
 
-                        {/* Add Attribute Form */}
-                        <div className="bg-gray-50 p-6 rounded border border-gray-200">
-                            <h3 className="font-bold mb-4 text-sm uppercase tracking-wider text-gray-500">添加新属性</h3>
-                            <form onSubmit={handleAddAttribute} className="grid grid-cols-12 gap-4 items-end">
+                        {/* Add/Edit Attribute Form */}
+                        <div className={`p-6 rounded border ${editingAttr ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-200'}`}>
+                            <h3 className="font-bold mb-4 text-sm uppercase tracking-wider text-gray-500">
+                                {editingAttr ? '编辑属性' : '添加新属性'}
+                                {editingAttr && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelEditAttr}
+                                        className="ml-2 text-xs font-normal text-gray-400 hover:text-black"
+                                    >
+                                        取消编辑
+                                    </button>
+                                )}
+                            </h3>
+                            <form onSubmit={editingAttr ? handleUpdateAttribute : handleAddAttribute} className="grid grid-cols-12 gap-4 items-end">
                                 <div className="col-span-3">
                                     <label className="block text-xs font-bold mb-1">名称</label>
                                     <input
@@ -420,12 +512,21 @@ function ProductManager() {
                                         />
                                         <span className="text-xs">必填</span>
                                     </label>
-                                    <button
-                                        type="submit"
-                                        className="bg-black text-white px-4 py-2 text-sm rounded hover:bg-gray-800"
-                                    >
-                                        添加
-                                    </button>
+                                    {editingAttr ? (
+                                        <button
+                                            type="submit"
+                                            className="bg-yellow-600 text-white px-4 py-2 text-sm rounded hover:bg-yellow-700"
+                                        >
+                                            保存
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="submit"
+                                            className="bg-black text-white px-4 py-2 text-sm rounded hover:bg-gray-800"
+                                        >
+                                            添加
+                                        </button>
+                                    )}
                                 </div>
                             </form>
                             <div className="mt-2 text-xs text-gray-400">

@@ -74,6 +74,7 @@ func main() {
 			admin.PUT("/products/:id", handlers.UpdateProduct)
 			admin.DELETE("/products/:id", handlers.DeleteProduct)
 			admin.POST("/products/:id/attributes", handlers.CreateProductAttribute)
+			admin.PUT("/products/:id/attributes/:attrId", handlers.UpdateProductAttribute)
 			admin.DELETE("/products/:id/attributes/:attrId", handlers.DeleteProductAttribute)
 
 			// Workers (Admin Management)

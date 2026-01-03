@@ -299,7 +299,10 @@ const Station = () => {
                                         {(order.products || []).map(p => p.name).join(", ")}
                                     </div>
                                     <div className={`col-span-3 text-center text-xs px-1 py-0.5 rounded ${isToday ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
-                                        {new Date(order.deadline).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
+                                        {(() => {
+                                            const d = new Date(order.deadline);
+                                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                        })()}
                                     </div>
                                     <div className="col-span-2 text-right pr-2">
                                         <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{order.status}</span>
