@@ -193,9 +193,6 @@ const Station = () => {
                                             <div className="flex items-center gap-1.5">
                                                 <span className="font-medium text-gray-800">{op.product?.name}</span>
                                                 <span className="text-blue-600">×{op.quantity}</span>
-                                                {op.product?.category?.name && (
-                                                    <span className="text-[10px] text-gray-400">[{op.product.category.name}]</span>
-                                                )}
                                             </div>
                                             <span className="text-gray-500 font-mono">¥{op.total_price?.toFixed(2)}</span>
                                         </div>

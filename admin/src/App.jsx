@@ -6,7 +6,6 @@ import CreateOrder from './pages/CreateOrder';
 import WorkerManager from './pages/WorkerManager';
 import WorkerStats from './pages/WorkerStats';
 import ProductManager from './pages/ProductManager';
-import CategoryManager from './pages/CategoryManager';
 import OrderList from './pages/OrderList';
 
 // Helper component for Nav Link
@@ -116,7 +115,6 @@ function AppContent() {
           <NavLink to="/orders">订单列表</NavLink>
           <NavLink to="/customers">客户管理</NavLink>
           <NavLink to="/products">产品管理</NavLink>
-          <NavLink to="/categories">分类配置</NavLink>
           <NavLink to="/workers">工人管理</NavLink>
           <NavLink to="/workers/stats">工作量统计</NavLink>
 
@@ -159,7 +157,6 @@ function AppContent() {
           <Route path="/create-order" element={<CreateOrder />} />
           <Route path="/customers" element={<CustomerManager />} />
           <Route path="/products" element={<ProductManager />} />
-          <Route path="/categories" element={<CategoryManager />} />
           <Route path="/workers" element={<WorkerManager />} />
           <Route path="/workers/stats" element={<WorkerStats />} />
           <Route path="*" element={<Dashboard />} />

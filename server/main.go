@@ -73,6 +73,8 @@ func main() {
 			admin.GET("/products", handlers.GetProducts)
 			admin.PUT("/products/:id", handlers.UpdateProduct)
 			admin.DELETE("/products/:id", handlers.DeleteProduct)
+			admin.POST("/products/:id/attributes", handlers.CreateProductAttribute)
+			admin.DELETE("/products/:id/attributes/:attrId", handlers.DeleteProductAttribute)
 
 			// Workers (Admin Management)
 			admin.POST("/workers", handlers.CreateWorker)
@@ -89,14 +91,6 @@ func main() {
 			admin.POST("/customers", handlers.CreateCustomer)
 			admin.PUT("/customers/:id", handlers.UpdateCustomer)
 			admin.DELETE("/customers/:id", handlers.DeleteCustomer)
-
-			// Categories
-			admin.GET("/categories", handlers.GetCategories)
-			admin.POST("/categories", handlers.CreateCategory)
-			admin.PUT("/categories/:id", handlers.UpdateCategory)
-			admin.DELETE("/categories/:id", handlers.DeleteCategory)
-			admin.POST("/categories/:id/attributes", handlers.CreateCategoryAttribute)
-			admin.DELETE("/categories/:id/attributes/:attrId", handlers.DeleteCategoryAttribute)
 		}
 	}
 

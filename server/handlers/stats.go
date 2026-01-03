@@ -201,7 +201,7 @@ func GetStationStats(c *gin.Context) {
 	orderMap := make(map[uint]models.Order)
 	if len(orderIDs) > 0 {
 		var orders []models.Order
-		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Preload("OrderProducts.Product.Category").Where("id IN ?", orderIDs).Find(&orders)
+		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Where("id IN ?", orderIDs).Find(&orders)
 		for _, o := range orders {
 			orderMap[o.ID] = o
 		}
@@ -219,16 +219,13 @@ func GetStationStats(c *gin.Context) {
 					if i > 0 {
 						pNames += ", "
 					}
-					if op.Product != nil {
-						pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
-						if op.Product.Category != nil {
-							pNames += fmt.Sprintf("[%s]", op.Product.Category.Name)
-						}
-						// 添加尺寸信息（如果有）
-						if op.Length > 0 || op.Width > 0 || op.Height > 0 {
-							pNames += fmt.Sprintf("(%.0f×%.0f×%.0f)", op.Length, op.Width, op.Height)
-						}
+				if op.Product != nil {
+					pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
+					// 添加尺寸信息（如果有）
+					if op.Length > 0 || op.Width > 0 || op.Height > 0 {
+						pNames += fmt.Sprintf("(%.0f×%.0f×%.0f)", op.Length, op.Width, op.Height)
 					}
+				}
 				}
 				rl.ProductNames = pNames
 			}
@@ -353,7 +350,7 @@ func GetWorkerStats(c *gin.Context) {
 	orderMap := make(map[uint]models.Order)
 	if len(orderIDs) > 0 {
 		var orders []models.Order
-		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").Preload("OrderProducts.Product.Category").
+		database.DB.Preload("OrderProducts").Preload("OrderProducts.Product").
 			Where("id IN ?", orderIDs).Find(&orders)
 		for _, o := range orders {
 			orderMap[o.ID] = o
@@ -381,9 +378,6 @@ func GetWorkerStats(c *gin.Context) {
 				}
 				if op.Product != nil {
 					pNames += fmt.Sprintf("%s×%d", op.Product.Name, op.Quantity)
-					if op.Product.Category != nil {
-						pNames += fmt.Sprintf("[%s]", op.Product.Category.Name)
-					}
 				}
 			}
 			pl.ProductNames = pNames

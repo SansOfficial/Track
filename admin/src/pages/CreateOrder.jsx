@@ -32,8 +32,6 @@ function CreateOrder() {
     });
 
     const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState('');
     const [customers, setCustomers] = useState([]);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -44,12 +42,6 @@ function CreateOrder() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Fetch categories
-        fetchWithAuth(`${API_BASE_URL}/categories`)
-            .then(res => res.json())
-            .then(data => setCategories(Array.isArray(data) ? data : []))
-            .catch(err => console.error(err));
-
         // Fetch products
         fetchWithAuth(`${API_BASE_URL}/products`)
             .then(res => res.json())
@@ -62,11 +54,6 @@ function CreateOrder() {
             .then(data => setCustomers(data || []))
             .catch(err => console.error(err));
     }, []);
-
-    // 根据类别筛选产品
-    const filteredProducts = selectedCategory
-        ? products.filter(p => p.category_id === parseInt(selectedCategory))
-        : products;
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -151,11 +138,6 @@ function CreateOrder() {
 
     const handleEditItem = (index) => {
         const item = orderItems[index];
-        // 找到产品所属的类别
-        const product = products.find(p => p.ID === item.product_id);
-        if (product) {
-            setSelectedCategory(product.category_id?.toString() || '');
-        }
         setCurrentItem({
             product_id: item.product_id.toString(),
             length: item.length.toString(),
@@ -313,32 +295,16 @@ function CreateOrder() {
                             </div>
                         )}
                         <div className="grid grid-cols-12 gap-3 items-end">
-                            <div className="col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">选择类别</label>
-                                <select
-                                    className="w-full p-2 border rounded text-sm"
-                                    value={selectedCategory}
-                                    onChange={e => {
-                                        setSelectedCategory(e.target.value);
-                                        setCurrentItem({ ...currentItem, product_id: '' });
-                                    }}
-                                >
-                                    <option value="">全部类别</option>
-                                    {categories.map(cat => (
-                                        <option key={cat.ID} value={cat.ID}>{cat.icon} {cat.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="col-span-2">
+                            <div className="col-span-3">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">选择产品</label>
                                 <select
                                     className="w-full p-2 border rounded text-sm"
                                     value={currentItem.product_id}
                                     onChange={e => setCurrentItem({ ...currentItem, product_id: e.target.value })}
                                 >
-                                    <option value="">-- 选择 --</option>
-                                    {filteredProducts.map(p => (
-                                        <option key={p.ID} value={p.ID}>{p.name}</option>
+                                    <option value="">-- 选择产品 --</option>
+                                    {products.map(p => (
+                                        <option key={p.ID} value={p.ID}>{p.icon || '📦'} {p.name}</option>
                                     ))}
                                 </select>
                             </div>
@@ -358,7 +324,7 @@ function CreateOrder() {
                                 <label className="block text-xs font-bold text-gray-500 mb-1">数量</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="1" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} />
                             </div>
-                            <div className="col-span-1">
+                            <div className="col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">单位</label>
                                 <select className="w-full p-2 border rounded text-sm bg-white" value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })}>
                                     <option value="块">块</option>
@@ -369,20 +335,20 @@ function CreateOrder() {
                                     <option value="米">米</option>
                                 </select>
                             </div>
-                            <div className="col-span-1">
+                            <div className="col-span-2">
                                 <label className="block text-xs font-bold text-gray-500 mb-1">单价</label>
                                 <input type="number" className="w-full p-2 border rounded text-sm" placeholder="0" value={currentItem.unit_price} onChange={e => setCurrentItem({ ...currentItem, unit_price: e.target.value })} />
                             </div>
-                        </div>
-                        <div className="mt-3 flex justify-end space-x-2">
-                            {editingIndex >= 0 && (
-                                <button type="button" onClick={handleCancelEdit} className="px-4 py-2 text-gray-500 hover:text-black text-sm border border-gray-300 rounded">
-                                    取消编辑
+                            <div className="col-span-1 flex space-x-1">
+                                {editingIndex >= 0 && (
+                                    <button type="button" onClick={handleCancelEdit} className="text-gray-400 hover:text-black p-2 border rounded" title="取消">
+                                        ✕
+                                    </button>
+                                )}
+                                <button type="button" onClick={handleAddItem} className="bg-black text-white px-3 py-2 rounded text-sm hover:bg-gray-800 flex-1">
+                                    {editingIndex >= 0 ? '✓' : '+'}
                                 </button>
-                            )}
-                            <button type="button" onClick={handleAddItem} className="bg-black text-white px-6 py-2 rounded text-sm hover:bg-gray-800">
-                                {editingIndex >= 0 ? '保存修改' : '+ 添加明细'}
-                            </button>
+                            </div>
                         </div>
                     </div>
 

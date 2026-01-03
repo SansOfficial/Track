@@ -36,8 +36,6 @@ function OrderList() {
 
     // Products & Customers for edit modal
     const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [editSelectedCategory, setEditSelectedCategory] = useState('');
     const [editingItemIndex, setEditingItemIndex] = useState(-1);
     const [customers, setCustomers] = useState([]);
     const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -46,11 +44,6 @@ function OrderList() {
     const { toast, confirm } = useUI();
 
     useEffect(() => {
-        fetchWithAuth(`${API_BASE_URL}/categories`)
-            .then(res => res.json())
-            .then(data => setCategories(Array.isArray(data) ? data : []))
-            .catch(err => console.error(err));
-
         fetchWithAuth(`${API_BASE_URL}/products`)
             .then(res => res.json())
             .then(data => setProducts(data || []))
@@ -61,11 +54,6 @@ function OrderList() {
             .then(data => setCustomers(data || []))
             .catch(err => console.error(err));
     }, []);
-
-    // 根据类别筛选产品
-    const editFilteredProducts = editSelectedCategory
-        ? products.filter(p => p.category_id === parseInt(editSelectedCategory))
-        : products;
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -211,7 +199,6 @@ function OrderList() {
             unit: '块',
             unit_price: ''
         });
-        setEditSelectedCategory('');
         setEditingItemIndex(-1);
         setIsEditModalOpen(true);
     };
@@ -263,11 +250,6 @@ function OrderList() {
 
     const handleEditItemClick = (index) => {
         const item = editOrderItems[index];
-        // 找到产品所属的类别
-        const product = products.find(p => p.ID === item.product_id);
-        if (product) {
-            setEditSelectedCategory(product.category_id?.toString() || '');
-        }
         setEditCurrentItem({
             product_id: item.product_id.toString(),
             length: item.length.toString(),
@@ -767,23 +749,7 @@ function OrderList() {
                                         </div>
                                     )}
                                     <div className="grid grid-cols-10 gap-2 items-end">
-                                        <div>
-                                            <label className="block text-xs text-gray-500 mb-1">类别</label>
-                                            <select
-                                                className="w-full p-2 border rounded text-sm"
-                                                value={editSelectedCategory}
-                                                onChange={e => {
-                                                    setEditSelectedCategory(e.target.value);
-                                                    setEditCurrentItem({ ...editCurrentItem, product_id: '' });
-                                                }}
-                                            >
-                                                <option value="">全部</option>
-                                                {categories.map(cat => (
-                                                    <option key={cat.ID} value={cat.ID}>{cat.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-3">
                                             <label className="block text-xs text-gray-500 mb-1">产品</label>
                                             <select
                                                 className="w-full p-2 border rounded text-sm"
@@ -791,8 +757,8 @@ function OrderList() {
                                                 onChange={e => setEditCurrentItem({ ...editCurrentItem, product_id: e.target.value })}
                                             >
                                                 <option value="">选择产品</option>
-                                                {editFilteredProducts.map(p => (
-                                                    <option key={p.ID} value={p.ID}>{p.name}</option>
+                                                {products.map(p => (
+                                                    <option key={p.ID} value={p.ID}>{p.icon || '📦'} {p.name}</option>
                                                 ))}
                                             </select>
                                         </div>

@@ -133,7 +133,7 @@ func GetOrders(c *gin.Context) {
 	query := database.DB.Model(&models.Order{}).
 		Preload("OrderProducts").
 		Preload("OrderProducts.Product").
-		Preload("OrderProducts.Product.AttributeValues.Attribute")
+		Preload("OrderProducts.Product.Attributes")
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -184,8 +184,7 @@ func GetOrder(c *gin.Context) {
 	if err := database.DB.
 		Preload("OrderProducts").
 		Preload("OrderProducts.Product").
-		Preload("OrderProducts.Product.Category").
-		Preload("OrderProducts.Product.AttributeValues.Attribute").
+		Preload("OrderProducts.Product.Attributes").
 		First(&order, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "订单不存在"})
 		return

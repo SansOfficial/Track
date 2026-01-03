@@ -146,20 +146,11 @@ export const printInvoice = (order) => {
     // 生成产品行
     const productRows = products.map((op, index) => {
         const product = op.product || {};
-        const category = product.category?.name || '-';
-        
-        // 获取产品属性值
-        const attrs = product.attribute_values || [];
-        const getAttrValue = (attrName) => {
-            const found = attrs.find(a => a.attribute?.name === attrName);
-            return found?.value || '';
-        };
         
         return `
             <tr>
                 <td>${index + 1}</td>
                 <td>${product.name || '-'}</td>
-                <td>${category}</td>
                 <td>${op.length || 0}</td>
                 <td>${op.width || 0}</td>
                 <td>${op.height || 0}</td>
@@ -176,7 +167,6 @@ export const printInvoice = (order) => {
     const emptyRows = Array(emptyRowsCount).fill(`
         <tr>
             <td>&nbsp;</td>
-            <td></td>
             <td></td>
             <td></td>
             <td></td>
@@ -301,7 +291,6 @@ export const printInvoice = (order) => {
                     <tr>
                         <th style="width: 30px;">序</th>
                         <th>品名</th>
-                        <th>类别</th>
                         <th>长</th>
                         <th>宽</th>
                         <th>高</th>
