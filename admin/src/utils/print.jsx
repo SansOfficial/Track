@@ -231,10 +231,15 @@ export const printInvoice = (order) => {
         <div class="attachments">
             <div class="attachments-title">附件图片</div>
             <div class="attachments-grid">
-                ${attachments.map((url, index) => `
-                    <img src="${url.startsWith('http') ? url : baseUrl + url}" alt="附件${index + 1}" onerror="this.style.display='none'" />
-                `).join('')}
+                ${attachments.map((url, index) => {
+                    const fullUrl = url.startsWith('http') ? url : baseUrl + url;
+                    return `<img src="${fullUrl}" alt="附件${index + 1}" onclick="showImage('${fullUrl}')" onerror="this.style.display='none'" />`;
+                }).join('')}
             </div>
+        </div>
+        <div id="imageModal" class="image-modal" onclick="hideImage()">
+            <img id="modalImage" src="" alt="大图预览" />
+            <div class="image-modal-hint">点击任意处关闭</div>
         </div>
     ` : '';
 
@@ -316,13 +321,64 @@ export const printInvoice = (order) => {
                 .attachments-grid {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 8px;
+                    gap: 10px;
                 }
                 .attachments-grid img {
-                    max-width: 180px;
-                    max-height: 150px;
+                    max-width: 280px;
+                    max-height: 220px;
                     border: 1px solid #ddd;
                     object-fit: contain;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                }
+                .attachments-grid img:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                }
+                /* 打印时图片更大更清晰 */
+                @media print {
+                    .attachments-grid img {
+                        max-width: 45%;
+                        max-height: 300px;
+                    }
+                }
+                /* 图片放大模态框 */
+                .image-modal {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.8);
+                    z-index: 9999;
+                    justify-content: center;
+                    align-items: center;
+                    cursor: pointer;
+                }
+                .image-modal.show {
+                    display: flex;
+                }
+                .image-modal img {
+                    max-width: 90%;
+                    max-height: 90%;
+                    object-fit: contain;
+                    border: 3px solid #fff;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                }
+                .image-modal-hint {
+                    position: absolute;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    color: #fff;
+                    font-size: 14px;
+                    background: rgba(0,0,0,0.5);
+                    padding: 8px 16px;
+                    border-radius: 4px;
+                }
+                @media print {
+                    .image-modal { display: none !important; }
                 }
                 .total-row {
                     display: flex;
@@ -420,8 +476,71 @@ export const printInvoice = (order) => {
                 <span style="margin-left: 20px;">0532-86711234</span>
             </div>
 
+            <!-- 打印控制栏（打印时隐藏） -->
+            <div class="print-controls" id="printControls">
+                <button onclick="window.print()" class="print-btn">🖨️ 打印 / 保存PDF</button>
+                <span class="print-hint">可先查看附件图片（点击放大），确认后再打印</span>
+            </div>
+
+            <style>
+                .print-controls {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    padding: 12px 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 20px;
+                    box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+                    z-index: 1000;
+                }
+                .print-btn {
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 10px 24px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                }
+                .print-btn:hover {
+                    background: #45a049;
+                }
+                .print-hint {
+                    color: #aaa;
+                    font-size: 12px;
+                }
+                @media print {
+                    .print-controls { display: none !important; }
+                    body { padding-bottom: 0 !important; }
+                }
+                body { padding-bottom: 60px; }
+            </style>
+
             <script>
-                window.onload = () => { window.print(); }
+                function showImage(src) {
+                    var modal = document.getElementById('imageModal');
+                    var img = document.getElementById('modalImage');
+                    if (modal && img) {
+                        img.src = src;
+                        modal.classList.add('show');
+                    }
+                }
+                function hideImage() {
+                    var modal = document.getElementById('imageModal');
+                    if (modal) {
+                        modal.classList.remove('show');
+                    }
+                }
+                // 按ESC键也可关闭
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') hideImage();
+                });
             </script>
         </body>
         </html>

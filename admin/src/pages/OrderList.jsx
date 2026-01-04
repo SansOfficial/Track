@@ -306,6 +306,63 @@ function OrderList() {
     const editSelectedProduct = products.find(p => p.ID === parseInt(editCurrentItem.product_id));
     const editProductAttrs = editSelectedProduct?.attributes || [];
 
+    // 面积单位配置：单位名称 -> 换算系数 (mm² 转换为该单位需要除以的数)
+    const areaUnits = {
+        '平米': 1000000,
+        '平方米': 1000000,
+        '㎡': 1000000,
+        '平方厘米': 100,
+        '平方分米': 10000,
+        'cm²': 100,
+        'dm²': 10000,
+        'm²': 1000000,
+    };
+
+    // 长度单位配置：单位名称 -> 换算系数 (mm 转换为该单位需要除以的数)
+    const lengthUnits = {
+        '米': 1000,
+        'm': 1000,
+        '分米': 100,
+        'dm': 100,
+        '厘米': 10,
+        'cm': 10,
+    };
+
+    // 判断是否是面积单位
+    const isAreaUnit = (unit) => Object.keys(areaUnits).includes(unit);
+    // 判断是否是长度单位
+    const isLengthUnit = (unit) => Object.keys(lengthUnits).includes(unit);
+
+    // 计算面积（平方毫米转为对应单位）
+    const calculateArea = (length, width, unit) => {
+        const l = parseFloat(length) || 0;
+        const w = parseFloat(width) || 0;
+        const divisor = areaUnits[unit] || 1000000;
+        return (l * w) / divisor;
+    };
+
+    // 计算长度（毫米转为对应单位）
+    const calculateLength = (length, unit) => {
+        const l = parseFloat(length) || 0;
+        const divisor = lengthUnits[unit] || 1000;
+        return l / divisor;
+    };
+
+    // 获取自动计算的数量
+    const getEditAutoQuantity = () => {
+        if (isAreaUnit(editCurrentItem.unit)) {
+            return calculateArea(editCurrentItem.length, editCurrentItem.width, editCurrentItem.unit);
+        }
+        if (isLengthUnit(editCurrentItem.unit)) {
+            return calculateLength(editCurrentItem.length, editCurrentItem.unit);
+        }
+        return null;
+    };
+
+    // 当前是否需要自动计算数量
+    const editAutoQuantity = getEditAutoQuantity();
+    const isEditAutoCalculate = editAutoQuantity !== null;
+
     // 处理额外属性值变化
     const handleEditExtraAttrChange = (attrName, value) => {
         setEditCurrentItem({
@@ -327,6 +384,14 @@ function OrderList() {
             return;
         }
 
+        // 获取数量
+        const finalQuantity = parseFloat(editCurrentItem.quantity);
+        
+        if (!finalQuantity || finalQuantity <= 0) {
+            toast.error('数量必须大于0');
+            return;
+        }
+
         // 检查必填的额外属性
         for (const attr of editProductAttrs) {
             if (attr.required && !editCurrentItem.extra_attrs[attr.name]) {
@@ -342,10 +407,10 @@ function OrderList() {
             length: parseFloat(editCurrentItem.length) || 0,
             width: parseFloat(editCurrentItem.width) || 0,
             height: parseFloat(editCurrentItem.height) || 0,
-            quantity: parseInt(editCurrentItem.quantity) || 1,
+            quantity: finalQuantity,
             unit: editCurrentItem.unit || '块',
             unit_price: parseFloat(editCurrentItem.unit_price),
-            total_price: parseFloat(editCurrentItem.unit_price) * (parseInt(editCurrentItem.quantity) || 1),
+            total_price: parseFloat(editCurrentItem.unit_price) * finalQuantity,
             extra_attrs: editCurrentItem.extra_attrs
         };
 
@@ -802,7 +867,7 @@ function OrderList() {
             {/* Edit Modal - Full Featured */}
             {isEditModalOpen && editingOrder && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white w-full max-w-4xl p-6 rounded shadow-2xl animate-scale-in my-8 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white w-full max-w-6xl p-6 rounded shadow-2xl animate-scale-in my-8 max-h-[90vh] overflow-y-auto">
                         <h3 className="text-xl font-bold mb-6 flex justify-between items-center">
                             <span>编辑订单 #{editingOrder.ID}</span>
                             <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-black">
@@ -885,8 +950,9 @@ function OrderList() {
                                             正在编辑第 {editingItemIndex + 1} 项
                                         </div>
                                     )}
-                                    <div className="grid grid-cols-10 gap-2 items-end">
-                                        <div className="col-span-3">
+                                    {/* 第一行：产品 + 长宽高数量（符合阅读直觉） */}
+                                    <div className="grid grid-cols-3 md:grid-cols-6 xl:grid-cols-12 gap-2 mb-2">
+                                        <div className="col-span-3 md:col-span-2 xl:col-span-3">
                                             <label className="block text-xs text-gray-500 mb-1">产品</label>
                                             <select
                                                 className="w-full p-2 border rounded text-sm"
@@ -899,31 +965,65 @@ function OrderList() {
                                                 ))}
                                             </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 mb-1">长</label>
+                                        <div className="col-span-1 xl:col-span-2">
+                                            <label className="block text-xs text-gray-500 mb-1">长 <span className="text-gray-400">mm</span></label>
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.length} onChange={e => setEditCurrentItem({ ...editCurrentItem, length: e.target.value })} />
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 mb-1">宽</label>
+                                        <div className="col-span-1 xl:col-span-2">
+                                            <label className="block text-xs text-gray-500 mb-1">宽 <span className="text-gray-400">mm</span></label>
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.width} onChange={e => setEditCurrentItem({ ...editCurrentItem, width: e.target.value })} />
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 mb-1">高</label>
+                                        <div className="col-span-1 xl:col-span-2">
+                                            <label className="block text-xs text-gray-500 mb-1">高 <span className="text-gray-400">mm</span></label>
                                             <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.height} onChange={e => setEditCurrentItem({ ...editCurrentItem, height: e.target.value })} />
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-500 mb-1">数量</label>
-                                            <input type="number" className="w-full p-2 border rounded text-sm" value={editCurrentItem.quantity} onChange={e => setEditCurrentItem({ ...editCurrentItem, quantity: e.target.value })} />
+                                        <div className="col-span-3 md:col-span-2 xl:col-span-3">
+                                            <label className="block text-xs text-gray-500 mb-1">
+                                                数量 
+                                                {isEditAutoCalculate && editAutoQuantity > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        className="text-blue-500 hover:text-blue-700 ml-1"
+                                                        onClick={() => setEditCurrentItem({ ...editCurrentItem, quantity: editAutoQuantity.toFixed(4) })}
+                                                        title="点击填入自动计算的数量"
+                                                    >
+                                                        ← {editAutoQuantity.toFixed(4)}
+                                                    </button>
+                                                )}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                className="w-full p-2 border rounded text-sm" 
+                                                value={editCurrentItem.quantity} 
+                                                onChange={e => setEditCurrentItem({ ...editCurrentItem, quantity: e.target.value })} 
+                                            />
                                         </div>
+                                    </div>
+                                    
+                                    {/* 第二行：单位、单价 */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                         <div>
                                             <label className="block text-xs text-gray-500 mb-1">单位</label>
                                             <select className="w-full p-2 border rounded text-sm" value={editCurrentItem.unit} onChange={e => setEditCurrentItem({ ...editCurrentItem, unit: e.target.value })}>
-                                                <option value="块">块</option>
-                                                <option value="平米">平米</option>
-                                                <option value="个">个</option>
-                                                <option value="套">套</option>
-                                                <option value="张">张</option>
-                                                <option value="米">米</option>
+                                                <optgroup label="常规单位">
+                                                    <option value="块">块</option>
+                                                    <option value="个">个</option>
+                                                    <option value="套">套</option>
+                                                    <option value="张">张</option>
+                                                    <option value="片">片</option>
+                                                </optgroup>
+                                                <optgroup label="面积单位 (自动计算)">
+                                                    <option value="平米">平米</option>
+                                                    <option value="平方米">平方米</option>
+                                                    <option value="㎡">㎡</option>
+                                                    <option value="平方分米">平方分米</option>
+                                                    <option value="平方厘米">平方厘米</option>
+                                                </optgroup>
+                                                <optgroup label="长度单位 (自动计算)">
+                                                    <option value="米">米</option>
+                                                    <option value="分米">分米</option>
+                                                    <option value="厘米">厘米</option>
+                                                </optgroup>
                                             </select>
                                         </div>
                                         <div>
