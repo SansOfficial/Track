@@ -166,15 +166,37 @@ export const printInvoice = (order) => {
 
     const products = order.order_products || [];
     
-    // 生成产品行
-    const productRows = products.map((op, index) => {
+    // 预处理：计算相同产品+规格的合并信息
+    const processedProducts = products.map((op, index) => {
         const product = op.product || {};
-        const extraAttrs = parseExtraAttrs(op.extra_attrs);
-        
-        // 格式化规格：长×宽×高
+        const productName = product.name || '-';
         const sizeText = (op.length || op.width || op.height) 
             ? `${op.length || 0}×${op.width || 0}×${op.height || 0}`
             : '-';
+        const mergeKey = `${productName}__${sizeText}`;
+        
+        return {
+            ...op,
+            productName,
+            sizeText,
+            mergeKey,
+            index
+        };
+    });
+    
+    // 计算每个合并组的起始位置和跨行数
+    const mergeGroups = {};
+    processedProducts.forEach((item, idx) => {
+        if (!mergeGroups[item.mergeKey]) {
+            mergeGroups[item.mergeKey] = { startIndex: idx, count: 0, indices: [] };
+        }
+        mergeGroups[item.mergeKey].count++;
+        mergeGroups[item.mergeKey].indices.push(idx);
+    });
+    
+    // 生成产品行（规格列放最后，相同产品+规格合并）
+    const productRows = processedProducts.map((op, index) => {
+        const extraAttrs = parseExtraAttrs(op.extra_attrs);
         
         // 格式化额外属性为多行显示
         const extraAttrsList = Object.entries(extraAttrs)
@@ -182,16 +204,26 @@ export const printInvoice = (order) => {
             .map(([key, value]) => `<div>${key}: ${value}</div>`)
             .join('');
         
+        // 判断是否需要显示规格列（只在合并组的第一行显示）
+        const group = mergeGroups[op.mergeKey];
+        const isFirstInGroup = group.indices[0] === index;
+        const rowSpan = group.count;
+        
+        // 规格单元格：只在组的第一行渲染，使用rowspan
+        const specCell = isFirstInGroup 
+            ? `<td class="td-spec" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>${op.sizeText}</td>`
+            : '';
+        
         return `
             <tr>
                 <td class="td-seq">${index + 1}</td>
-                <td class="td-name">${product.name || '-'}</td>
-                <td class="td-spec">${sizeText}</td>
+                <td class="td-name">${op.productName}</td>
                 <td class="td-attrs">${extraAttrsList || '-'}</td>
                 <td class="td-qty">${op.quantity || 1}</td>
                 <td class="td-unit">${op.unit || '块'}</td>
                 <td class="td-price">${op.unit_price?.toFixed(2) || '0.00'}</td>
                 <td class="td-amount">${op.total_price?.toFixed(2) || '0.00'}</td>
+                ${specCell}
             </tr>
         `;
     }).join('');
@@ -202,12 +234,12 @@ export const printInvoice = (order) => {
         <tr>
             <td class="td-seq">&nbsp;</td>
             <td class="td-name"></td>
-            <td class="td-spec"></td>
             <td class="td-attrs"></td>
             <td class="td-qty"></td>
             <td class="td-unit"></td>
             <td class="td-price"></td>
             <td class="td-amount"></td>
+            <td class="td-spec"></td>
         </tr>
     `).join('');
 
@@ -438,12 +470,12 @@ export const printInvoice = (order) => {
                     <tr>
                         <th class="td-seq">序号</th>
                         <th class="td-name">品名</th>
-                        <th class="td-spec">规格(长×宽×高)</th>
                         <th class="td-attrs">属性</th>
                         <th class="td-qty">数量</th>
                         <th class="td-unit">单位</th>
                         <th class="td-price">单价</th>
                         <th class="td-amount">金额</th>
+                        <th class="td-spec">规格(长×宽×高)</th>
                     </tr>
                 </thead>
                 <tbody>
